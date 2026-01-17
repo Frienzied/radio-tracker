@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import requests
 import os
 import pytz
+import math
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
@@ -50,14 +51,16 @@ def get_time_in_zone(zone_name):
     except: return "--:--"
 
 def latlon_to_maidenhead(lat, lon):
-    A = ord('A')
-    lon += 180; lat += 90
-    f_lon = int(lon/20); f_lat = int(lat/10)
-    lon -= f_lon*20; lat -= f_lat*10
-    s_lon = int(lon/2); s_lat = int(lat)
-    lon -= s_lon*2; lat -= s_lat
-    ss_lon = int(lon*12); ss_lat = int(lat*24)
-    return f"{chr(A+f_lon)}{chr(A+f_lat)}{s_lon}{s_lat}{chr(A+ss_lon)}{chr(A+ss_lat)}"
+    try:
+        A = ord('A')
+        lon += 180; lat += 90
+        f_lon = int(lon/20); f_lat = int(lat/10)
+        lon -= f_lon*20; lat -= f_lat*10
+        s_lon = int(lon/2); s_lat = int(lat)
+        lon -= s_lon*2; lat -= s_lat
+        ss_lon = int(lon*12); ss_lat = int(lat*24)
+        return f"{chr(A+f_lon)}{chr(A+f_lat)}{s_lon}{s_lat}{chr(A+ss_lon)}{chr(A+ss_lat)}"
+    except: return "Error"
 
 # ===========================
 # 1. LISTY I DANE (PEŁNE WERSJE)
@@ -104,13 +107,13 @@ repeater_list = [
 ]
 
 global_stations = [
-    {"MHz": "0.225", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Polska", "Nazwa": "Polskie Radio 1", "Opis": "Solec Kujawski. Zasięg: cała Europa. Kluczowy w sytuacjach kryzysowych."},
-    {"MHz": "0.198", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "BBC Radio 4", "Opis": "Legendarna stacja brytyjska. Zasięg zachodnia Europa."},
-    {"MHz": "0.153", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "Radio Romania", "Opis": "Antena Satelor. Bardzo silny sygnał z Rumunii (muzyka ludowa)."},
-    {"MHz": "6.000", "Pasmo": "49m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 49m", "Opis": "Główne pasmo wieczorne dla stacji europejskich (BBC, RFI)."},
-    {"MHz": "9.400", "Pasmo": "31m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 31m", "Opis": "Najpopularniejsze pasmo międzynarodowe (Całodobowe)."},
-    {"MHz": "15.100", "Pasmo": "19m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 19m", "Opis": "Stacje dalekiego zasięgu (Chiny, USA) w ciągu dnia."},
-    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Utility", "Nazwa": "UVB-76", "Opis": "Rosyjska stacja numeryczna (The Buzzer). Nadaje od lat 70-tych."},
+    {"MHz": "0.225", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Polska", "Nazwa": "Polskie Radio 1", "Opis": "Nadajnik w Solcu Kujawskim. Zasięg: cała Europa. Kluczowy w sytuacjach kryzysowych."},
+    {"MHz": "0.198", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "BBC Radio 4", "Opis": "Legendarna stacja brytyjska. Zasięg zachodnia Europa."},
+    {"MHz": "0.153", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "Radio Romania", "Opis": "Antena Satelor. Bardzo silny sygnał z Rumunii (muzyka ludowa)."},
+    {"MHz": "6.000-6.200", "Pasmo": "49m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 49m", "Opis": "Główne pasmo wieczorne dla stacji europejskich (BBC, RFI)."},
+    {"MHz": "9.400-9.900", "Pasmo": "31m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 31m", "Opis": "Najpopularniejsze pasmo międzynarodowe (Całodobowe)."},
+    {"MHz": "15.100-15.800", "Pasmo": "19m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 19m", "Opis": "Stacje dalekiego zasięgu (Chiny, USA) w ciągu dnia."},
+    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB/AM", "Kategoria": "Utility", "Nazwa": "UVB-76", "Opis": "Rosyjska stacja numeryczna (The Buzzer). Nadaje od lat 70-tych."},
     {"MHz": "5.000", "Pasmo": "SW", "Mod": "AM", "Kategoria": "Wzorzec", "Nazwa": "WWV", "Opis": "Amerykański wzorzec czasu. Służy do testowania propagacji."},
     {"MHz": "14.230", "Pasmo": "20m", "Mod": "USB", "Kategoria": "Ham", "Nazwa": "SSTV Call", "Opis": "Krótkofalowcy przesyłający obrazki (Analogowo)."},
     {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Lotnictwo", "Nazwa": "RAF Volmet", "Opis": "Pogoda dla lotnictwa (Royal Air Force)."},
@@ -138,24 +141,28 @@ special_freqs = [
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 3. LOGIKA SATELITARNA (ZABEZPIECZONA)
+# 3. LOGIKA SATELITARNA (NAPRAWIONA - BULLETPROOF)
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
+    """Zwraca TLE. W razie błędu zwraca dane zapasowe."""
     FALLBACK_TLE = (
         "1 25544U 98067A   24017.54519514  .00016149  00000+0  29290-3 0  9993",
         "2 25544  51.6415 158.8530 0005786 244.1866 179.9192 15.49622591435056"
     )
     url = "https://celestrak.org/NORAD/elements/stations.txt"
     headers = {"User-Agent": "Mozilla/5.0"}
+    
     try:
         resp = requests.get(url, headers=headers, timeout=5)
-        resp.raise_for_status()
+        resp.raise_for_status() 
         lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
         for i, line in enumerate(lines):
-            if "ISS (ZARYA)" in line and i+2 < len(lines): return lines[i+1], lines[i+2]
-        return FALLBACK_TLE
-    except: return FALLBACK_TLE
+            if "ISS (ZARYA)" in line and i+2 < len(lines):
+                return lines[i+1], lines[i+2]
+        return FALLBACK_TLE # Jeśli pętla nie znajdzie ISS, zwróć zapas
+    except Exception:
+        return FALLBACK_TLE # Jeśli błąd połączenia, zwróć zapas
 
 def get_satellite_position(line1, line2):
     try:
@@ -196,35 +203,35 @@ with c3: st.markdown(f"<div style='text-align:right;color:gray;'>Odwiedzin: <b>{
 # 10 ZAKŁADEK
 tabs = st.tabs(["📡 Tracker", "☀️ Pogoda", "🆘 Kryzysowe", "🌍 Czas", "📻 Globalne", "📚 Edukacja", "🗺️ Przemienniki", "🧮 Kalkulatory", "🌐 WebSDR", "📝 Logbook"])
 
-# 1. TRACKER
+# 1. TRACKER (ODPORNY NA BŁĘDY)
 with tabs[0]:
     c_map, c_data = st.columns([3, 2])
     with c_map:
         st.subheader("ISS Tracker")
-        tle_data = fetch_iss_tle()
+        tle_data = fetch_iss_tle() # Zawsze zwraca tuple, nigdy None
         if tle_data:
             l1, l2 = tle_data
             lat, lon, t_lat, t_lon = get_satellite_position(l1, l2)
-            if lat:
+            if lat is not None:
                 fig = go.Figure()
                 fig.add_trace(go.Scattergeo(lat=t_lat, lon=t_lon, mode="lines", line=dict(color="blue", width=2, dash="dot")))
                 fig.add_trace(go.Scattergeo(lat=[lat], lon=[lon], mode="text", text=["🛰️"], textfont=dict(size=30)))
                 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=450, geo=dict(projection_type="natural earth", showland=True, landcolor="#333", showocean=True, oceancolor="#111", showcountries=True), showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button("🔄 Odśwież"): st.rerun()
-            else: st.error("Błąd obliczeń.")
-        else: st.error("Błąd TLE.")
+            else:
+                st.error("Błąd obliczeń pozycji.")
+        else:
+            st.error("Błąd danych orbitalnych.")
 
     with c_data:
         st.subheader("Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
-        
-        # PRZYWRÓCONE FILTRY (ROZWIJANE PASKI)
         c_search, c_filter = st.columns([2, 1])
         with c_search: 
             search = st.text_input("🔍 Szukaj...", placeholder="Np. Kanał 19, PMR 3")
         with c_filter: 
-            cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...") # To jest ten pasek
+            cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...")
 
         if search: df = df[df.apply(lambda r: r.astype(str).str.contains(search, case=False).any(), axis=1)]
         if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
@@ -254,7 +261,7 @@ with tabs[1]:
         st.error("### K-Index (Burze Magnetyczne)")
         st.markdown('* **0-2:** Czysty sygnał.\n* **> 4:** Burza geomagnetyczna.')
 
-# 3. KRYZYSOWE (PEŁNE DANE PRZYWRÓCONE)
+# 3. KRYZYSOWE (PEŁNE)
 with tabs[2]:
     st.header("🆘 Procedury Awaryjne (Polska)")
     c1, c2, c3 = st.columns(3)
@@ -262,8 +269,8 @@ with tabs[2]:
         st.error("### 1. Reguła 3-3-3")
         st.markdown("""
         System nasłuchu w sytuacji kryzysowej (brak GSM):
-        * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
-        * **Ile?** 3 minuty nasłuchu, potem wywołanie.
+        * **Kiedy?** Co 3 godziny (12:00, 15:00...)
+        * **Ile?** 3 minuty nasłuchu.
         * **Gdzie?** * **PMR:** Kanał 3 (446.03125 MHz)
             * **CB:** Kanał 3 (26.980 MHz AM)
         """)
@@ -271,19 +278,16 @@ with tabs[2]:
         st.warning("### 2. Sprzęt")
         st.markdown("""
         * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
-        * **Zasięg (PMR):** * Miasto: 500m - 1km. 
-            * Otwarty teren: do 5km. 
-            * Góry/Kosmos: >100km.
-        * **Antena:** Fabryczna "gumowa" to najsłabsze ogniwo. Warto mieć dłuższą (np. Nagoya 771).
+        * **Zasięg (PMR):** Miasto 500m-1km, Góry >100km.
+        * **Antena:** Fabryczna "gumowa" to najsłabsze ogniwo.
         """)
     with c3: 
         st.info("### 3. Komunikacja (SALT)")
         st.markdown("""
-        W sytuacji kryzysowej meldunki muszą być krótkie i konkretne:
-        * **S (Size):** Wielkość zdarzenia / Liczba osób.
+        * **S (Size):** Wielkość zdarzenia.
         * **A (Activity):** Co się dzieje?
-        * **L (Location):** Gdzie jesteście?
-        * **T (Time):** Kiedy to się stało?
+        * **L (Location):** Gdzie?
+        * **T (Time):** Kiedy?
         """)
 
 # 4. CZAS
@@ -297,42 +301,28 @@ with tabs[3]:
 # 5. GLOBALNE
 with tabs[4]:
     st.header("📻 Stacje Globalne")
-    st.dataframe(
-        pd.DataFrame(global_stations), 
-        column_config={
-            "Nazwa": st.column_config.TextColumn("Stacja", width="medium"),
-            "Opis": st.column_config.TextColumn("Opis i Zasięg", width="large")
-        },
-        use_container_width=True, hide_index=True
-    )
+    st.dataframe(pd.DataFrame(global_stations), column_config={"Nazwa": st.column_config.TextColumn("Stacja", width="medium"), "Opis": st.column_config.TextColumn("Opis", width="large")}, use_container_width=True, hide_index=True)
 
-# 6. EDUKACJA (PEŁNE DANE PRZYWRÓCONE)
+# 6. EDUKACJA (PEŁNE)
 with tabs[5]:
     st.header("📚 Edukacja Radiowa")
     c1, c2 = st.columns(2)
     with c1: 
-        st.subheader("📖 Słownik Pojęć")
+        st.subheader("📖 Słownik")
         st.markdown("""
-        * **AM (Amplituda):** Modulacja używana w lotnictwie i na CB. Odporna na efekt "zjadania" słabszego sygnału.
-        * **FM / NFM (Częstotliwość):** Modulacja "czysta", ale działająca zero-jedynkowo (albo słyszysz, albo nie).
-        * **SSB (LSB/USB):** Modulacja jednowstęgowa. Pozwala na łączności międzykontynentalne na falach krótkich.
-        * **Squelch (SQ):** Bramka szumów. Wycisza radio, gdy sygnał jest zbyt słaby.
-        * **CTCSS / DCS:** Kody (tony) dodawane do głosu. Działają jak klucz do drzwi - otwierają przemiennik.
-        * **Shift (Offset):** Różnica między częstotliwością, na której słuchasz, a tą, na której nadajesz.
-        * **73:** Międzynarodowy kod oznaczający "Pozdrawiam".
-        * **QTH:** Kod oznaczający "Moja lokalizacja".
+        * **AM:** Modulacja amplitudy (Lotnictwo/CB). Odporna na nakładki.
+        * **FM:** Modulacja częstotliwości (Służby/PMR). Czysty dźwięk.
+        * **SSB:** Wstęgowa. Daleki zasięg na KF.
+        * **Squelch:** Blokada szumów.
+        * **CTCSS:** "Klucz" do przemiennika.
+        * **73:** Pozdrawiam.
         """)
     with c2: 
         st.subheader("💡 Ciekawostki")
         st.markdown("""
-        * **Dlaczego polskie CB to 'Zera'?**
-          Większość świata używa końcówek 5 (np. 27.185). W Polsce historycznie przyjęto 0 (27.180). Musisz mieć radio w standardzie "PL".
-        * **PMR - Zasięg to mit?**
-          Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry. W mieście to często 500m.
-        * **Dlaczego samoloty używają AM?**
-          W FM silniejszy sygnał wycina słabszy. W AM słychać obu naraz (pisk), co jest bezpieczniejsze dla kontroli lotów.
-        * **Efekt Dopplera:**
-          Gdy ISS nadlatuje, słyszysz go ok. 3 kHz wyżej. Gdy odlatuje - niżej.
+        * **CB Zera:** Polska pracuje w "zerach" (27.180), Europa w "piątkach" (27.185).
+        * **Doppler:** Satelita "piszczy" wyżej jak nadlatuje, niżej jak odlatuje (+/- 3kHz).
+        * **Samoloty w AM:** Aby kontroler słyszał gdy dwie osoby mówią naraz (słychać pisk). W FM słabszy sygnał zniknąłby całkowicie.
         """)
 
 # 7. PRZEMIENNIKI
@@ -352,8 +342,8 @@ with tabs[7]:
     c1, c2, c3 = st.columns(3)
     with c1:
         st.subheader("📡 Dipol")
-        f = st.number_input("Freq (MHz)", 145.5)
-        st.success(f"Długość całkowita: {142.5/f:.2f}m")
+        f = st.number_input("Freq (MHz)", 145.5, format="%.3f")
+        st.success(f"Długość: {142.5/f:.2f}m")
     with c2:
         st.subheader("🌊 Fala")
         st.metric("Długość fali", f"{300/f:.2f}m")
@@ -367,16 +357,14 @@ with tabs[8]:
     st.header("🌐 WebSDR")
     st.dataframe(pd.DataFrame(websdr_list), column_config={"Link": st.column_config.LinkColumn("Link", display_text="Otwórz 🔗")}, use_container_width=True, hide_index=True)
 
-# 10. LOGBOOK (TRWAŁY - PLIK CSV)
+# 10. LOGBOOK (TRWAŁY)
 with tabs[9]:
     st.header("📝 Dziennik Nasłuchów (Logbook)")
-    st.markdown("Twoja osobista baza łączności. Dane zapisywane w pliku `radio_logbook.csv`.")
+    st.markdown("Dane zapisywane są w pliku `radio_logbook.csv` na serwerze.")
     
-    # Ładowanie danych z pliku
     if 'logbook_df' not in st.session_state:
         st.session_state.logbook_df = load_logbook()
 
-    # Formularz
     with st.form("log_form", clear_on_submit=True):
         c1, c2, c3, c4, c5 = st.columns(5)
         with c1: t_in = st.text_input("Godzina (UTC)", value=datetime.now(timezone.utc).strftime("%H:%M"))
@@ -385,35 +373,17 @@ with tabs[9]:
         with c4: m_in = st.selectbox("Modulacja", ["FM", "AM", "SSB", "CW", "DMR"])
         with c5: r_in = st.text_input("Raport (RST)", "59")
         
-        submitted = st.form_submit_button("➕ Zapisz w Bazie")
-        if submitted:
+        if st.form_submit_button("➕ Zapisz"):
             if f_in and s_in:
-                new_entry = pd.DataFrame([{
-                    "Data": datetime.now().strftime("%Y-%m-%d"),
-                    "Godzina (UTC)": t_in,
-                    "Freq (MHz)": f_in,
-                    "Stacja": s_in,
-                    "Modulacja": m_in,
-                    "Raport": r_in
-                }])
+                new_entry = pd.DataFrame([{"Data": datetime.now().strftime("%Y-%m-%d"), "Godzina (UTC)": t_in, "Freq (MHz)": f_in, "Stacja": s_in, "Modulacja": m_in, "Raport": r_in}])
                 st.session_state.logbook_df = pd.concat([st.session_state.logbook_df, new_entry], ignore_index=True)
-                save_logbook(st.session_state.logbook_df) # Zapis do pliku
+                save_logbook(st.session_state.logbook_df)
                 st.success("Zapisano!")
-            else:
-                st.error("Podaj przynajmniej częstotliwość i znak.")
+            else: st.error("Podaj częstotliwość i znak.")
 
-    # Wyświetlanie Tabeli
     st.subheader("Ostatnie wpisy")
     st.dataframe(st.session_state.logbook_df, use_container_width=True)
-    
-    # Przycisk pobierania (Backup)
-    csv = st.session_state.logbook_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Pobierz Logbook (CSV)",
-        data=csv,
-        file_name='radio_logbook.csv',
-        mime='text/csv',
-    )
+    st.download_button("📥 Pobierz Logbook (CSV)", st.session_state.logbook_df.to_csv(index=False).encode('utf-8'), "radio_logbook.csv", "text/csv")
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v12.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v13.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
