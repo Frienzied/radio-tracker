@@ -4,12 +4,11 @@ import plotly.graph_objects as go
 import requests
 import os
 import pytz
-import numpy as np
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
 from sgp4.api import Satrec, jday
-from astropy.coordinates import TEME, EarthLocation, ITRS, AltAz, GCRS
+from astropy.coordinates import TEME, EarthLocation, ITRS, AltAz
 from astropy.time import Time
 import astropy.units as u
 
@@ -114,7 +113,7 @@ special_freqs = [
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 2. LOGIKA SATELITARNA (ZAAWANSOWANA)
+# 2. LOGIKA SATELITARNA
 # ===========================
 
 SAT_CONFIG = {
@@ -126,7 +125,7 @@ SAT_CONFIG = {
 
 @st.cache_data(ttl=3600)
 def fetch_tle(sat_key):
-    """Pobiera TLE dla konkretnego satelity."""
+    """Pobiera TLE. Zwraca None w przypadku błędu."""
     config = SAT_CONFIG.get(sat_key)
     if not config: return None
     
@@ -136,7 +135,6 @@ def fetch_tle(sat_key):
         resp.raise_for_status()
         lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
         for i, line in enumerate(lines):
-            # Szukamy dokładnej nazwy satelity w pliku
             if config["name"] in line and i+2 < len(lines):
                 return lines[i+1], lines[i+2]
         return None
@@ -144,35 +142,28 @@ def fetch_tle(sat_key):
         return None
 
 def calculate_look_angles(satrec, observer_lat, observer_lon, observer_alt=0):
-    """Oblicza Azymut i Elewację dla obserwatora."""
     try:
         now = datetime.now(timezone.utc)
         t_astropy = Time(now)
-        
-        # Obserwator
         loc = EarthLocation(lat=observer_lat*u.deg, lon=observer_lon*u.deg, height=observer_alt*u.m)
         
-        # Pozycja satelity (TEME -> ITRS -> AltAz)
         jd, fr = jday(now.year, now.month, now.day, now.hour, now.minute, now.second + now.microsecond * 1e-6)
         e, r, v = satrec.sgp4(jd, fr)
         if e != 0: return None, None
         
         teme = TEME(x=r[0]*u.km, y=r[1]*u.km, z=r[2]*u.km, obstime=t_astropy)
-        
-        # Konwersja do AltAz (Horyzontalny)
         altaz = teme.transform_to(AltAz(obstime=t_astropy, location=loc))
         
         return altaz.az.deg, altaz.alt.deg
-    except Exception as e:
+    except Exception:
         return None, None
 
 def get_ground_track(satrec):
-    """Oblicza ślad na ziemi (Lat/Lon) na +/- 45 minut."""
     now = datetime.now(timezone.utc)
     lats, lons = [], []
     prev_lon = None
     
-    for delta in range(-45 * 60, 45 * 60, 60): # Co minutę
+    for delta in range(-45 * 60, 45 * 60, 60):
         t_step = now + timedelta(seconds=delta)
         jd, fr = jday(t_step.year, t_step.month, t_step.day, t_step.hour, t_step.minute, t_step.second)
         _, r, _ = satrec.sgp4(jd, fr)
@@ -183,7 +174,6 @@ def get_ground_track(satrec):
         loc = EarthLocation(itrs.x, itrs.y, itrs.z)
         
         lon = loc.lon.deg
-        # Przerwanie linii na zmianie daty
         if prev_lon is not None and abs(lon - prev_lon) > 180:
             lats.append(None); lons.append(None)
             
@@ -191,7 +181,6 @@ def get_ground_track(satrec):
         lons.append(lon)
         prev_lon = lon
         
-    # Aktualna pozycja
     jd, fr = jday(now.year, now.month, now.day, now.hour, now.minute, now.second + now.microsecond * 1e-6)
     _, r, _ = satrec.sgp4(jd, fr)
     teme = TEME(x=r[0]*u.km, y=r[1]*u.km, z=r[2]*u.km, obstime=Time(now))
@@ -211,9 +200,8 @@ with c_visits: st.markdown(f"<div style='text-align: right; color: gray;'>Odwied
 
 tabs = st.tabs(["🛰️ Tracker (Radar)", "☀️ Pogoda Kosmiczna", "🆘 Kryzysowe", "🌍 Czas", "📻 Globalne", "📚 Edukacja"])
 
-# --- TAB 1: TRACKER ROZBUDOWANY ---
+# --- TAB 1: TRACKER ---
 with tabs[0]:
-    # Konfiguracja Trackera
     c_sat, c_loc1, c_loc2 = st.columns([2, 1, 1])
     with c_sat:
         selected_sat = st.selectbox("Wybierz satelitę:", list(SAT_CONFIG.keys()), index=0)
@@ -222,80 +210,48 @@ with tabs[0]:
     with c_loc2:
         user_lon = st.number_input("Twoja Lon:", value=21.01, step=0.01, format="%.2f")
 
-    l1, l2 = fetch_tle(selected_sat)
+    # --- POPRAWKA: BEZPIECZNE POBIERANIE DANYCH ---
+    tle_data = fetch_tle(selected_sat)
     
-    if l1 and l2:
+    if tle_data is not None:
+        l1, l2 = tle_data  # Rozpakuj tylko jeśli mamy dane
+        
         satrec = Satrec.twoline2rv(l1, l2)
         cur_lat, cur_lon, path_lat, path_lon = get_ground_track(satrec)
         az, el = calculate_look_angles(satrec, user_lat, user_lon)
         
-        # Wskaźniki Azymut / Elewacja
-        col_metrics = st.columns(4)
-        col_metrics[0].metric("Satelita", selected_sat)
-        col_metrics[1].metric("Azymut (Kierunek)", f"{az:.1f}°", delta=None)
-        col_metrics[2].metric("Elewacja (Wysokość)", f"{el:.1f}°", delta_color="normal" if el > 0 else "off")
-        col_metrics[3].metric("Widoczność", "WIDOCZNY!" if el > 0 else "Pod horyzontem")
+        if az is not None and el is not None:
+            col_metrics = st.columns(4)
+            col_metrics[0].metric("Satelita", selected_sat)
+            col_metrics[1].metric("Azymut", f"{az:.1f}°")
+            col_metrics[2].metric("Elewacja", f"{el:.1f}°", delta_color="normal" if el > 0 else "off")
+            col_metrics[3].metric("Status", "WIDOCZNY" if el > 0 else "Pod horyzontem")
 
-        # Dwie kolumny: Mapa Świata i Radar
-        c_world, c_radar = st.columns([2, 1])
-        
-        with c_world:
-            st.subheader("Mapa Świata")
-            fig = go.Figure()
-            fig.add_trace(go.Scattergeo(lat=path_lat, lon=path_lon, mode="lines", line=dict(color="blue", width=2, dash="dot"), name="Orbita"))
-            fig.add_trace(go.Scattergeo(lat=[cur_lat], lon=[cur_lon], mode="text", text=["🛰️"], textfont=dict(size=30), name="Teraz"))
-            # Pozycja użytkownika
-            fig.add_trace(go.Scattergeo(lat=[user_lat], lon=[user_lon], mode="markers", marker=dict(size=8, color="green"), name="TY"))
+            c_world, c_radar = st.columns([2, 1])
             
-            fig.update_layout(
-                margin={"r":0,"t":0,"l":0,"b":0}, height=400,
-                geo=dict(projection_type="natural earth", showland=True, landcolor="rgb(230, 230, 230)", showocean=True, oceancolor="rgb(200, 225, 255)", showcountries=True),
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            with c_world:
+                st.subheader("Mapa Świata")
+                fig = go.Figure()
+                fig.add_trace(go.Scattergeo(lat=path_lat, lon=path_lon, mode="lines", line=dict(color="blue", width=2, dash="dot"), name="Orbita"))
+                fig.add_trace(go.Scattergeo(lat=[cur_lat], lon=[cur_lon], mode="text", text=["🛰️"], textfont=dict(size=30), name="Teraz"))
+                fig.add_trace(go.Scattergeo(lat=[user_lat], lon=[user_lon], mode="markers", marker=dict(size=8, color="green"), name="TY"))
+                fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=400, geo=dict(projection_type="natural earth", showland=True, showocean=True, showcountries=True), showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
 
-        with c_radar:
-            st.subheader("Radar (Skyplot)")
-            # Wykres polarny
-            # Azymut to kąt (theta), Elewacja to promień (r). Ale w Skyplot środek to 90st (zenit), a brzeg to 0st (horyzont).
-            # Więc r = 90 - elewacja. Jeśli el < 0, to satelita jest poza wykresem.
-            
-            r_val = 90 - el if el > 0 else None
-            theta_val = az if el > 0 else None
-            
-            fig_polar = go.Figure()
-            
-            # Tło radaru
-            fig_polar.add_trace(go.Scatterpolar(
-                r=[r_val] if r_val is not None else [],
-                theta=[theta_val] if theta_val is not None else [],
-                mode='markers+text',
-                marker=dict(size=15, color='red', symbol='circle'),
-                text=['🛰️'],
-                textposition="top center"
-            ))
-            
-            fig_polar.update_layout(
-                polar=dict(
-                    radialaxis=dict(range=[0, 90], showticklabels=False, tickmode='array', tickvals=[0, 30, 60, 90]),
-                    angularaxis=dict(direction="clockwise", rotation=0) # N na górze (0), zgodnie z zegarem (E=90)
-                ),
-                margin={"r":20,"t":20,"l":20,"b":20},
-                height=400,
-                showlegend=False
-            )
-            st.plotly_chart(fig_polar, use_container_width=True)
-            if el < 0:
-                st.info("Satelita jest pod horyzontem. Radar pokazuje tylko widoczne obiekty.")
-                
-        if st.button("🔄 Odśwież dane satelitarne"): st.rerun()
-
+            with c_radar:
+                st.subheader("Radar (Niebo)")
+                r_val = 90 - el if el > 0 else None
+                theta_val = az if el > 0 else None
+                fig_polar = go.Figure()
+                fig_polar.add_trace(go.Scatterpolar(r=[r_val] if r_val is not None else [], theta=[theta_val] if theta_val is not None else [], mode='markers+text', marker=dict(size=15, color='red'), text=['🛰️'], textposition="top center"))
+                fig_polar.update_layout(polar=dict(radialaxis=dict(range=[0, 90], showticklabels=False, tickvals=[0, 30, 60, 90]), angularaxis=dict(direction="clockwise", rotation=0)), margin={"r":20,"t":20,"l":20,"b":20}, height=400, showlegend=False)
+                st.plotly_chart(fig_polar, use_container_width=True)
+        else:
+            st.error("Błąd obliczeń pozycji.")
     else:
-        st.error("Nie udało się pobrać danych TLE dla wybranego satelity.")
+        st.warning(f"⚠️ Nie udało się pobrać danych dla satelity **{selected_sat}**. Serwer CelesTrak może być przeciążony. Spróbuj zmienić satelitę lub odświeżyć stronę za chwilę.")
 
     st.divider()
-    
-    # Lista częstotliwości pod spodem
     st.subheader("Baza Częstotliwości (PL)")
     df = pd.DataFrame(data_freq)
     c_s, c_f = st.columns([2,1])
@@ -341,4 +297,4 @@ with tabs[5]:
     st.markdown("**Squelch:** Blokada szumów. **AM:** Lotnictwo/CB. **FM:** Służby/PMR. **73:** Pozdrawiam.")
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v8.0 Ultimate | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v8.1 Fixed | Dane: CelesTrak, N0NBH | Czas: UTC")
