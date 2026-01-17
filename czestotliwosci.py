@@ -38,7 +38,7 @@ def update_counter():
 visit_count = update_counter()
 
 def get_utc_time():
-    return datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+    return datetime.now(timezone.utc).strftime("%H:%M UTC") # Skrócony format bez sekund dla estetyki
 
 def get_time_in_zone(zone_name):
     try:
@@ -111,14 +111,14 @@ global_stations = [
     {"MHz": "0.198", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "BBC Radio 4", "Opis": "Legendarna stacja brytyjska. Zasięg zachodnia Europa."},
     {"MHz": "0.153", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "Radio Romania Antena Satelor", "Opis": "Bardzo silny sygnał z Rumunii (muzyka ludowa)."},
     
-    # --- FALE KRÓTKIE (SW) - BROADCAST ---
+    # --- FALE KRÓTKIE (SW) ---
     {"MHz": "6.000-6.200", "Pasmo": "49m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 49m (Wieczór)", "Opis": "Główne pasmo wieczorne dla stacji europejskich (BBC, RFI)."},
     {"MHz": "9.400-9.900", "Pasmo": "31m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 31m (Całodobowe)", "Opis": "Najpopularniejsze pasmo międzynarodowe."},
     {"MHz": "15.100-15.800", "Pasmo": "19m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 19m (Dzień)", "Opis": "Stacje dalekiego zasięgu (Chiny, USA) w ciągu dnia."},
     
-    # --- STACJE UŻYTKOWE / CIEKAWOSTKI ---
-    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB/AM", "Kategoria": "Utility", "Nazwa": "UVB-76 (The Buzzer)", "Opis": "Rosyjska stacja numeryczna. Nadaje 'brzęczenie' i czasem szyfry od lat 70-tych."},
-    {"MHz": "5.000 / 10.000", "Pasmo": "SW", "Mod": "AM", "Kategoria": "Wzorzec Czasu", "Nazwa": "WWV / WWVH", "Opis": "Amerykański wzorzec czasu. Służy do sprawdzania czy 'fale niosą'."},
+    # --- STACJE UŻYTKOWE ---
+    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB/AM", "Kategoria": "Utility", "Nazwa": "UVB-76 (The Buzzer)", "Opis": "Rosyjska stacja numeryczna. Nadaje 'brzęczenie' i czasem szyfry."},
+    {"MHz": "5.000 / 10.000", "Pasmo": "SW", "Mod": "AM", "Kategoria": "Wzorzec Czasu", "Nazwa": "WWV / WWVH", "Opis": "Amerykański wzorzec czasu."},
     {"MHz": "14.230", "Pasmo": "20m", "Mod": "SSTV (USB)", "Kategoria": "Ham Radio", "Nazwa": "SSTV Call Freq", "Opis": "Krótkofalowcy przesyłający obrazki (Analogowo)."},
     {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Lotnictwo", "Nazwa": "RAF Volmet", "Opis": "Pogoda dla lotnictwa (Royal Air Force)."},
 ]
@@ -209,33 +209,35 @@ data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 # 5. INTERFEJS APLIKACJI
 # ===========================
 
-with st.sidebar:
-    st.header("🎛️ Panel Kontrolny")
-    
-    # Zegar UTC (Sidebar)
+# --- NAGŁÓWEK (ZAMIAST SIDEBARA) ---
+c_title, c_clock, c_visits = st.columns([3, 1, 1])
+
+with c_title:
+    st.title("📡 Centrum Dowodzenia")
+
+with c_clock:
     st.markdown(f"""
-    <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
-        <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
-        <div style="font-size: 1.8em; font-weight: bold; color: #00ff41; font-family: monospace;">{get_utc_time()}</div>
+    <div style="text-align: right; font-family: monospace; color: #00ff41;">
+    <b>ZULU TIME (UTC):</b> {get_utc_time()}
     </div>
     """, unsafe_allow_html=True)
-    
-    st.write("---")
-    st.write(f"👁️ Odwiedzin: **{visit_count}**")
-    
-    with st.expander("📚 Słowniczek Radiowy", expanded=True):
-        st.markdown("""
-        * **LW (Long Wave):** Fale długie. Bardzo duży zasięg, nawet przy przeszkodach terenowych.
-        * **SW (Short Wave):** Fale krótkie. Zasięg globalny dzięki odbiciom od jonosfery (szczególnie w nocy).
-        * **AM:** Modulacja amplitudy. Używana w lotnictwie i na falach krótkich.
-        * **Squelch (SQ):** Blokada szumów.
-        * **QTH:** Lokalizacja.
-        """)
 
-st.title("📡 Centrum Dowodzenia Radiowego")
+with c_visits:
+    st.markdown(f"""
+    <div style="text-align: right; color: gray;">
+    Odwiedzin: <b>{visit_count}</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Zakładki - TERAZ 4 ZAKŁADKI
-tab1, tab2, tab3, tab4 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa", "🌍 Czas na Świecie", "📻 Stacje Globalne"])
+
+# --- ZAKŁADKI (5 ZAKŁADEK) ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📡 Tracker & Skaner", 
+    "🆘 Łączność Kryzysowa", 
+    "🌍 Czas na Świecie", 
+    "📻 Stacje Globalne",
+    "📚 Słownik & Ciekawostki"
+])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
 with tab1:
@@ -360,13 +362,10 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
-# --- ZAKŁADKA 4: STACJE GLOBALNE (NOWOŚĆ) ---
+# --- ZAKŁADKA 4: STACJE GLOBALNE ---
 with tab4:
     st.header("📻 Globalne Stacje Radiowe (LW/MW/SW)")
-    st.markdown("""
-    Lista wybranych stacji o zasięgu globalnym lub kontynentalnym. 
-    **Uwaga:** Na falach krótkich (SW) jakość odbioru zależy od pory dnia, roku i aktywności słonecznej.
-    """)
+    st.markdown("Lista stacji o zasięgu globalnym lub kontynentalnym.")
     
     df_global = pd.DataFrame(global_stations)
     
@@ -382,10 +381,42 @@ with tab4:
         use_container_width=True,
         hide_index=True
     )
+
+# --- ZAKŁADKA 5: SŁOWNIK I CIEKAWOSTKI (NOWA!) ---
+with tab5:
+    st.header("📚 Edukacja Radiowa")
     
-    st.info("""
-    ℹ️ **Wskazówka:** Jeśli nie masz odbiornika fal krótkich (SW), możesz posłuchać tych stacji przez internet używając **WebSDR** (np. websdr.ewi.utwente.nl).
-    """)
+    col_dict, col_facts = st.columns(2)
+    
+    with col_dict:
+        st.subheader("📖 Słownik Pojęć")
+        st.markdown("""
+        * **AM (Amplituda):** Modulacja używana w lotnictwie i na CB. Odporna na efekt "zjadania" słabszego sygnału.
+        * **FM / NFM (Częstotliwość):** Modulacja "czysta", ale działająca zero-jedynkowo (albo słyszysz, albo nie).
+        * **SSB (LSB/USB):** Modulacja jednowstęgowa. Pozwala na łączności międzykontynentalne na falach krótkich.
+        * **Squelch (SQ):** Bramka szumów. Wycisza radio, gdy sygnał jest zbyt słaby.
+        * **CTCSS / DCS:** Kody (tony) dodawane do głosu. Działają jak klucz do drzwi - otwierają przemiennik.
+        * **Shift (Offset):** Różnica między częstotliwością, na której słuchasz, a tą, na której nadajesz (niezbędne przy przemiennikach).
+        * **73:** Międzynarodowy kod oznaczający "Pozdrawiam".
+        * **QTH:** Kod oznaczający "Moja lokalizacja".
+        * **DX:** Łączność dalekiego zasięgu (poza granice kraju/kontynentu).
+        """)
+
+    with col_facts:
+        st.subheader("💡 Ciekawostki")
+        st.markdown("""
+        * **Dlaczego polskie CB to 'Zera'?**
+          Większość świata używa częstotliwości kończących się na 5 (np. 27.185 MHz). W Polsce historycznie przyjęto końcówki 0 (27.180 MHz). Aby rozmawiać z polskimi kierowcami, musisz mieć radio przestawione w standard "PL".
+        
+        * **PMR - Zasięg to mit?**
+          Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry na inną górę. W gęstej zabudowie miejskiej realny zasięg to często 300-500 metrów.
+        
+        * **Dlaczego samoloty używają AM?**
+          W modulacji FM, gdy dwie osoby nadają naraz, radio odtwarza tylko silniejszy sygnał (słabszy znika). W lotnictwie to niebezpieczne - kontroler musi wiedzieć, że ktoś próbuje się wciąć. W AM słychać obu naraz jako pisk/interferencję.
+          
+        * **Efekt Dopplera:**
+          Gdy ISS nadlatuje w Twoją stronę z prędkością 28 000 km/h, fale radiowe są "ściskane" i słyszysz je na wyższej częstotliwości (+3 kHz). Gdy odlatuje - na niższej.
+        """)
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v5.0 | Dane: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v6.0 | Dane: CelesTrak | Czas: UTC")
