@@ -18,7 +18,7 @@ import astropy.units as u
 st.set_page_config(page_title="Centrum Dowodzenia Radiowego", page_icon="📡", layout="wide")
 
 # ===========================
-# 0. FUNKCJE POMOCNICZE
+# 0. FUNKCJE POMOCNICZE I BAZA DANYCH
 # ===========================
 LOGBOOK_FILE = "radio_logbook.csv"
 
@@ -60,15 +60,17 @@ def latlon_to_maidenhead(lat, lon):
     return f"{chr(A+f_lon)}{chr(A+f_lat)}{s_lon}{s_lat}{chr(A+ss_lon)}{chr(A+ss_lat)}"
 
 # ===========================
-# 1. LISTY I DANE
+# 1. LISTY I DANE (PEŁNE WERSJE)
 # ===========================
 def generate_pmr_list():
     pmr = []
     base = 446.00625
     for i in range(16):
         ch = i+1
-        desc = "Preppersi/Góry" if ch==3 else "Popularny" if ch==1 else "Ogólny"
-        pmr.append({"MHz": f"{base+(i*0.0125):.5f}", "Pasmo": "PMR", "Mod": "NFM", "Nazwa": f"PMR {ch}", "Opis": desc})
+        desc = "Kanał ogólny"
+        if ch==1: desc = "Najpopularniejszy kanał (dzieci, nianie, budowy)"
+        elif ch==3: desc = "Kanał PREPPERSÓW (Reguła 3-3-3). Góry (Alpy/Włochy)"
+        pmr.append({"MHz": f"{base+(i*0.0125):.5f}", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": f"PMR {ch}", "Opis": desc})
     return pmr
 
 def generate_cb_list():
@@ -79,17 +81,20 @@ def generate_cb_list():
     cb = []
     for i, f in enumerate(freqs):
         ch = i+1
-        desc = "!!! RATUNKOWY !!!" if ch==9 else "!!! DROGOWY !!!" if ch==19 else "Preppers" if ch==3 else "Ogólny"
-        cb.append({"MHz": f"{f-0.005:.3f}", "Pasmo": "CB", "Mod": "AM", "Nazwa": f"CB {ch}", "Opis": desc})
+        desc = "Kanał ogólny"
+        if ch==9: desc = "!!! RATUNKOWY !!!"
+        elif ch==19: desc = "!!! DROGOWY !!! (Antymisiek)"
+        elif ch==3: desc = "Kanał Preppersów (System 3-3-3)"
+        cb.append({"MHz": f"{f-0.005:.3f}", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": f"CB {ch}", "Opis": desc})
     return cb
 
 repeater_list = [
-    {"Znak": "SR5WA", "Freq": "439.350", "CTCSS": "127.3", "Lat": 52.23, "Lon": 21.01, "Loc": "Warszawa", "Shift": "-7.6"},
+    {"Znak": "SR5WA", "Freq": "439.350", "CTCSS": "127.3", "Lat": 52.23, "Lon": 21.01, "Loc": "Warszawa (PKiN)", "Shift": "-7.6"},
     {"Znak": "SR5W", "Freq": "145.600", "CTCSS": "127.3", "Lat": 52.21, "Lon": 20.98, "Loc": "Warszawa", "Shift": "-0.6"},
-    {"Znak": "SR6J", "Freq": "145.675", "CTCSS": "94.8", "Lat": 50.78, "Lon": 15.56, "Loc": "Śnieżne Kotły", "Shift": "-0.6"},
+    {"Znak": "SR6J", "Freq": "145.675", "CTCSS": "94.8", "Lat": 50.78, "Lon": 15.56, "Loc": "Śnieżne Kotły (Ogromny Zasięg!)", "Shift": "-0.6"},
     {"Znak": "SR9P", "Freq": "438.900", "CTCSS": "103.5", "Lat": 50.06, "Lon": 19.94, "Loc": "Kraków", "Shift": "-7.6"},
-    {"Znak": "SR9C", "Freq": "145.775", "CTCSS": "103.5", "Lat": 49.65, "Lon": 19.88, "Loc": "Kraków", "Shift": "-0.6"},
-    {"Znak": "SR2Z", "Freq": "145.725", "CTCSS": "94.8", "Lat": 54.37, "Lon": 18.60, "Loc": "Gdańsk", "Shift": "-0.6"},
+    {"Znak": "SR9C", "Freq": "145.775", "CTCSS": "103.5", "Lat": 49.65, "Lon": 19.88, "Loc": "Chorągwica", "Shift": "-0.6"},
+    {"Znak": "SR2Z", "Freq": "145.725", "CTCSS": "94.8", "Lat": 54.37, "Lon": 18.60, "Loc": "Gdańsk (Olivia Star)", "Shift": "-0.6"},
     {"Znak": "SR2C", "Freq": "438.800", "CTCSS": "94.8", "Lat": 54.52, "Lon": 18.53, "Loc": "Gdynia", "Shift": "-7.6"},
     {"Znak": "SR3PO", "Freq": "438.850", "CTCSS": "110.9", "Lat": 52.40, "Lon": 16.92, "Loc": "Poznań", "Shift": "-7.6"},
     {"Znak": "SR8L", "Freq": "145.625", "CTCSS": "107.2", "Lat": 51.24, "Lon": 22.57, "Loc": "Lublin", "Shift": "-0.6"},
@@ -99,63 +104,58 @@ repeater_list = [
 ]
 
 global_stations = [
-    {"MHz": "0.225", "Pasmo": "LW", "Mod": "AM", "Nazwa": "Polskie Radio 1", "Opis": "Solec Kujawski (Cała PL)."},
-    {"MHz": "0.198", "Pasmo": "LW", "Mod": "AM", "Nazwa": "BBC Radio 4", "Opis": "UK News."},
-    {"MHz": "0.153", "Pasmo": "LW", "Mod": "AM", "Nazwa": "Radio Romania", "Opis": "Antena Satelor."},
-    {"MHz": "6.000", "Pasmo": "49m", "Mod": "AM", "Nazwa": "Pasmo 49m", "Opis": "Wieczór Europa."},
-    {"MHz": "9.400", "Pasmo": "31m", "Mod": "AM", "Nazwa": "Pasmo 31m", "Opis": "Całodobowe."},
-    {"MHz": "15.100", "Pasmo": "19m", "Mod": "AM", "Nazwa": "Pasmo 19m", "Opis": "Dzień (Daleki zasięg)."},
-    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB", "Nazwa": "UVB-76", "Opis": "The Buzzer (Rosja)."},
-    {"MHz": "5.000", "Pasmo": "SW", "Mod": "AM", "Nazwa": "WWV", "Opis": "Wzorzec Czasu."},
-    {"MHz": "14.230", "Pasmo": "20m", "Mod": "USB", "Nazwa": "SSTV Call", "Opis": "Obrazki SSTV."},
-    {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Nazwa": "RAF Volmet", "Opis": "Pogoda lotnicza."},
+    {"MHz": "0.225", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Polska", "Nazwa": "Polskie Radio 1", "Opis": "Solec Kujawski. Zasięg: cała Europa. Kluczowy w sytuacjach kryzysowych."},
+    {"MHz": "0.198", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "BBC Radio 4", "Opis": "Legendarna stacja brytyjska. Zasięg zachodnia Europa."},
+    {"MHz": "0.153", "Pasmo": "LW", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "Radio Romania", "Opis": "Antena Satelor. Bardzo silny sygnał z Rumunii (muzyka ludowa)."},
+    {"MHz": "6.000", "Pasmo": "49m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 49m", "Opis": "Główne pasmo wieczorne dla stacji europejskich (BBC, RFI)."},
+    {"MHz": "9.400", "Pasmo": "31m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 31m", "Opis": "Najpopularniejsze pasmo międzynarodowe (Całodobowe)."},
+    {"MHz": "15.100", "Pasmo": "19m", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 19m", "Opis": "Stacje dalekiego zasięgu (Chiny, USA) w ciągu dnia."},
+    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Utility", "Nazwa": "UVB-76", "Opis": "Rosyjska stacja numeryczna (The Buzzer). Nadaje od lat 70-tych."},
+    {"MHz": "5.000", "Pasmo": "SW", "Mod": "AM", "Kategoria": "Wzorzec", "Nazwa": "WWV", "Opis": "Amerykański wzorzec czasu. Służy do testowania propagacji."},
+    {"MHz": "14.230", "Pasmo": "20m", "Mod": "USB", "Kategoria": "Ham", "Nazwa": "SSTV Call", "Opis": "Krótkofalowcy przesyłający obrazki (Analogowo)."},
+    {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Lotnictwo", "Nazwa": "RAF Volmet", "Opis": "Pogoda dla lotnictwa (Royal Air Force)."},
 ]
 
 websdr_list = [
-    {"Nazwa": "WebSDR Twente", "Kraj": "Holandia 🇳🇱", "Link": "http://websdr.ewi.utwente.nl:8901/", "Opis": "Najlepszy na świecie (0-30 MHz)."},
-    {"Nazwa": "WebSDR Zielona Góra", "Kraj": "Polska 🇵🇱", "Link": "http://websdr.sp3pgx.uz.zgora.pl:8901/", "Opis": "Satelity i VHF/UHF."},
-    {"Nazwa": "Klub SP2PMK", "Kraj": "Polska 🇵🇱", "Link": "http://sp2pmk.uni.torun.pl:8901/", "Opis": "Toruń (KF)."},
-    {"Nazwa": "KiwiSDR Map", "Kraj": "Świat 🌍", "Link": "http://rx.linkfanel.net/", "Opis": "Mapa odbiorników."},
+    {"Nazwa": "WebSDR Twente", "Kraj": "Holandia 🇳🇱", "Link": "http://websdr.ewi.utwente.nl:8901/", "Opis": "Absolutny nr 1 na świecie. Odbiera wszystko od stacji numerycznych po Radio China."},
+    {"Nazwa": "WebSDR Zielona Góra", "Kraj": "Polska 🇵🇱", "Link": "http://websdr.sp3pgx.uz.zgora.pl:8901/", "Opis": "Idealny do nasłuchu satelitów (ISS, NOAA) oraz lokalnych przemienników."},
+    {"Nazwa": "Klub SP2PMK", "Kraj": "Polska 🇵🇱", "Link": "http://sp2pmk.uni.torun.pl:8901/", "Opis": "Toruń. Świetny do słuchania polskich rozmów krótkofalarskich (wieczorami na 3.7 MHz)."},
+    {"Nazwa": "KiwiSDR Map", "Kraj": "Świat 🌍", "Link": "http://rx.linkfanel.net/", "Opis": "Mapa tysięcy amatorskich odbiorników na całym świecie."},
 ]
 
 special_freqs = [
-    {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Nazwa": "ISS (Głos)", "Opis": "Region 1 Voice"},
-    {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio"},
-    {"MHz": "437.800", "Pasmo": "70cm", "Mod": "FM", "Nazwa": "ISS (Repeater)", "Opis": "Uplink: 145.990"},
-    {"MHz": "137.100", "Pasmo": "VHF", "Mod": "WFM", "Nazwa": "NOAA 19", "Opis": "APT Weather"},
-    {"MHz": "121.500", "Pasmo": "Air", "Mod": "AM", "Nazwa": "Air Guard", "Opis": "Ratunkowy"},
-    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Nazwa": "LPR (Oper)", "Opis": "Pogotowie Lotnicze"},
-    {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Nazwa": "PSP (B028)", "Opis": "Krajowy KSRG"},
-    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Nazwa": "Kanał 16", "Opis": "Ratunkowy"},
-    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Nazwa": "VHF Call", "Opis": "Wywoławcza"},
+    {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Region 1 Voice - Główny kanał foniczny ISS"},
+    {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio 1200bps / Digipeater"},
+    {"MHz": "437.800", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (Repeater)", "Opis": "Downlink przemiennika (Uplink: 145.990 z tonem 67.0)"},
+    {"MHz": "137.100", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "APT - Analogowe zdjęcia Ziemi (przeloty popołudniowe)"},
+    {"MHz": "121.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Air Guard", "Opis": "Międzynarodowy kanał RATUNKOWY (wymaga radia z AM!)"},
+    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Operacyjny)", "Opis": "Częsty kanał Lotniczego Pogotowia (może się różnić lokalnie)"},
+    {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (B028)", "Opis": "Krajowy Kanał Ratowniczo-Gaśniczy (ogólnopolski)"},
+    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Morski kanał ratunkowy i wywoławczy"},
+    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "VHF Call", "Opis": "Wywoławcza krótkofalarska (rozmowy lokalne)"},
 ]
 
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 3. LOGIKA SATELITARNA (NAPRAWIONA)
+# 3. LOGIKA SATELITARNA (ZABEZPIECZONA)
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
-    # TLE Zapasowe (Fallback) na wypadek awarii Celestrak
     FALLBACK_TLE = (
         "1 25544U 98067A   24017.54519514  .00016149  00000+0  29290-3 0  9993",
         "2 25544  51.6415 158.8530 0005786 244.1866 179.9192 15.49622591435056"
     )
     url = "https://celestrak.org/NORAD/elements/stations.txt"
     headers = {"User-Agent": "Mozilla/5.0"}
-    
     try:
         resp = requests.get(url, headers=headers, timeout=5)
-        resp.raise_for_status() # Sprawdź czy nie ma błędu 404/500
+        resp.raise_for_status()
         lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
         for i, line in enumerate(lines):
-            if "ISS (ZARYA)" in line and i+2 < len(lines):
-                return lines[i+1], lines[i+2]
+            if "ISS (ZARYA)" in line and i+2 < len(lines): return lines[i+1], lines[i+2]
         return FALLBACK_TLE
-    except Exception:
-        # W razie jakiegokolwiek błędu zwróć stare dane, żeby strona działała
-        return FALLBACK_TLE
+    except: return FALLBACK_TLE
 
 def get_satellite_position(line1, line2):
     try:
@@ -201,7 +201,7 @@ with tabs[0]:
     c_map, c_data = st.columns([3, 2])
     with c_map:
         st.subheader("ISS Tracker")
-        tle_data = fetch_iss_tle() # Teraz zawsze zwróci tuple, nigdy None
+        tle_data = fetch_iss_tle()
         if tle_data:
             l1, l2 = tle_data
             lat, lon, t_lat, t_lon = get_satellite_position(l1, l2)
@@ -212,32 +212,79 @@ with tabs[0]:
                 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=450, geo=dict(projection_type="natural earth", showland=True, landcolor="#333", showocean=True, oceancolor="#111", showcountries=True), showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button("🔄 Odśwież"): st.rerun()
-            else:
-                st.error("Błąd obliczeń orbitalnych.")
-        else:
-            st.error("Błąd krytyczny danych TLE.")
+            else: st.error("Błąd obliczeń.")
+        else: st.error("Błąd TLE.")
 
     with c_data:
-        st.subheader("Częstotliwości")
+        st.subheader("Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
-        search = st.text_input("Szukaj", placeholder="PMR, CB...")
+        
+        # PRZYWRÓCONE FILTRY (ROZWIJANE PASKI)
+        c_search, c_filter = st.columns([2, 1])
+        with c_search: 
+            search = st.text_input("🔍 Szukaj...", placeholder="Np. Kanał 19, PMR 3")
+        with c_filter: 
+            cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...") # To jest ten pasek
+
         if search: df = df[df.apply(lambda r: r.astype(str).str.contains(search, case=False).any(), axis=1)]
-        st.dataframe(df, use_container_width=True, hide_index=True, height=450)
+        if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
+        
+        st.dataframe(
+            df[["MHz", "Nazwa", "Mod", "Opis"]],
+            column_config={
+                "MHz": st.column_config.TextColumn("MHz", width="small"),
+                "Nazwa": st.column_config.TextColumn("Nazwa", width="medium"),
+                "Mod": st.column_config.TextColumn("Mod", width="small"),
+                "Opis": st.column_config.TextColumn("Opis", width="large"),
+            },
+            use_container_width=True, hide_index=True, height=450
+        )
 
 # 2. POGODA
 with tabs[1]:
     st.header("☀️ Pogoda Kosmiczna")
     c1, c2 = st.columns(2)
-    with c1: st.image("https://www.hamqsl.com/solar101vhf.php", caption="N0NBH Data"); st.image("https://www.hamqsl.com/solarmap.php", caption="Greyline")
-    with c2: st.info("**SFI:** >100 = Super.\n**K-Index:** <3 = Czysto."); st.markdown("Dane na żywo z N0NBH.")
+    with c1: 
+        st.image("https://www.hamqsl.com/solar101vhf.php", caption="Dane na żywo: N0NBH")
+        st.markdown("---")
+        st.image("https://www.hamqsl.com/solarmap.php", caption="Mapa Dzień/Noc (Greyline)")
+    with c2:
+        st.success("### SFI (Solar Flux Index)")
+        st.markdown('* **> 100:** Dobre warunki DX.\n* **< 70:** Słabe warunki (szum).')
+        st.error("### K-Index (Burze Magnetyczne)")
+        st.markdown('* **0-2:** Czysty sygnał.\n* **> 4:** Burza geomagnetyczna.')
 
-# 3. KRYZYSOWE
+# 3. KRYZYSOWE (PEŁNE DANE PRZYWRÓCONE)
 with tabs[2]:
-    st.header("🆘 Procedury Awaryjne")
+    st.header("🆘 Procedury Awaryjne (Polska)")
     c1, c2, c3 = st.columns(3)
-    with c1: st.error("### 1. Reguła 3-3-3"); st.markdown("Co 3h / 3min / Kanał 3 (PMR/CB).")
-    with c2: st.warning("### 2. Sprzęt"); st.markdown("Baofeng = Tylko FM. CB/Lotnictwo = AM.")
-    with c3: st.info("### 3. SALT"); st.markdown("Size, Activity, Location, Time.")
+    with c1: 
+        st.error("### 1. Reguła 3-3-3")
+        st.markdown("""
+        System nasłuchu w sytuacji kryzysowej (brak GSM):
+        * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
+        * **Ile?** 3 minuty nasłuchu, potem wywołanie.
+        * **Gdzie?** * **PMR:** Kanał 3 (446.03125 MHz)
+            * **CB:** Kanał 3 (26.980 MHz AM)
+        """)
+    with c2: 
+        st.warning("### 2. Sprzęt")
+        st.markdown("""
+        * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
+        * **Zasięg (PMR):** * Miasto: 500m - 1km. 
+            * Otwarty teren: do 5km. 
+            * Góry/Kosmos: >100km.
+        * **Antena:** Fabryczna "gumowa" to najsłabsze ogniwo. Warto mieć dłuższą (np. Nagoya 771).
+        """)
+    with c3: 
+        st.info("### 3. Komunikacja (SALT)")
+        st.markdown("""
+        W sytuacji kryzysowej meldunki muszą być krótkie i konkretne:
+        * **S (Size):** Wielkość zdarzenia / Liczba osób.
+        * **A (Activity):** Co się dzieje?
+        * **L (Location):** Gdzie jesteście?
+        * **T (Time):** Kiedy to się stało?
+        """)
 
 # 4. CZAS
 with tabs[3]:
@@ -245,23 +292,52 @@ with tabs[3]:
     zs = [("UTC", "UTC"), ("PL", "Europe/Warsaw"), ("NY", "America/New_York"), ("LA", "America/Los_Angeles"), ("Tokio", "Asia/Tokyo"), ("Sydney", "Australia/Sydney")]
     cols = st.columns(3)
     for i, (n, z) in enumerate(zs):
-        cols[i%3].markdown(f"<div style='background:#222;padding:10px;text-align:center;margin:5px;'><div>{n}</div><div style='font-size:1.5em;font-weight:bold;'>{get_time_in_zone(z)}</div></div>", unsafe_allow_html=True)
+        cols[i%3].markdown(f"<div style='background:#222;padding:10px;text-align:center;margin:5px;border-radius:10px;'><div>{n}</div><div style='font-size:1.5em;font-weight:bold;'>{get_time_in_zone(z)}</div></div>", unsafe_allow_html=True)
 
 # 5. GLOBALNE
 with tabs[4]:
     st.header("📻 Stacje Globalne")
-    st.dataframe(pd.DataFrame(global_stations), use_container_width=True, hide_index=True)
+    st.dataframe(
+        pd.DataFrame(global_stations), 
+        column_config={
+            "Nazwa": st.column_config.TextColumn("Stacja", width="medium"),
+            "Opis": st.column_config.TextColumn("Opis i Zasięg", width="large")
+        },
+        use_container_width=True, hide_index=True
+    )
 
-# 6. EDUKACJA
+# 6. EDUKACJA (PEŁNE DANE PRZYWRÓCONE)
 with tabs[5]:
-    st.header("📚 Edukacja")
+    st.header("📚 Edukacja Radiowa")
     c1, c2 = st.columns(2)
-    with c1: st.markdown("**AM:** Lotnictwo/CB.\n**FM:** Służby/PMR.\n**SSB:** Daleki zasięg.\n**Squelch:** Blokada szumów.")
-    with c2: st.markdown("**CB Zera:** Polska 27.180 (końcówka 0).\n**Doppler:** Zmiana freq satelity.\n**QTH:** Lokalizacja.")
+    with c1: 
+        st.subheader("📖 Słownik Pojęć")
+        st.markdown("""
+        * **AM (Amplituda):** Modulacja używana w lotnictwie i na CB. Odporna na efekt "zjadania" słabszego sygnału.
+        * **FM / NFM (Częstotliwość):** Modulacja "czysta", ale działająca zero-jedynkowo (albo słyszysz, albo nie).
+        * **SSB (LSB/USB):** Modulacja jednowstęgowa. Pozwala na łączności międzykontynentalne na falach krótkich.
+        * **Squelch (SQ):** Bramka szumów. Wycisza radio, gdy sygnał jest zbyt słaby.
+        * **CTCSS / DCS:** Kody (tony) dodawane do głosu. Działają jak klucz do drzwi - otwierają przemiennik.
+        * **Shift (Offset):** Różnica między częstotliwością, na której słuchasz, a tą, na której nadajesz.
+        * **73:** Międzynarodowy kod oznaczający "Pozdrawiam".
+        * **QTH:** Kod oznaczający "Moja lokalizacja".
+        """)
+    with c2: 
+        st.subheader("💡 Ciekawostki")
+        st.markdown("""
+        * **Dlaczego polskie CB to 'Zera'?**
+          Większość świata używa końcówek 5 (np. 27.185). W Polsce historycznie przyjęto 0 (27.180). Musisz mieć radio w standardzie "PL".
+        * **PMR - Zasięg to mit?**
+          Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry. W mieście to często 500m.
+        * **Dlaczego samoloty używają AM?**
+          W FM silniejszy sygnał wycina słabszy. W AM słychać obu naraz (pisk), co jest bezpieczniejsze dla kontroli lotów.
+        * **Efekt Dopplera:**
+          Gdy ISS nadlatuje, słyszysz go ok. 3 kHz wyżej. Gdy odlatuje - niżej.
+        """)
 
 # 7. PRZEMIENNIKI
 with tabs[6]:
-    st.header("🗺️ Przemienniki PL")
+    st.header("🗺️ Mapa Przemienników PL")
     c1, c2 = st.columns([3,1])
     dfr = pd.DataFrame(repeater_list)
     with c1:
@@ -275,25 +351,28 @@ with tabs[7]:
     st.header("🧮 Narzędzia")
     c1, c2, c3 = st.columns(3)
     with c1:
+        st.subheader("📡 Dipol")
         f = st.number_input("Freq (MHz)", 145.5)
-        st.success(f"Dipol: {142.5/f:.2f}m")
+        st.success(f"Długość całkowita: {142.5/f:.2f}m")
     with c2:
-        st.metric("Fala", f"{300/f:.2f}m")
+        st.subheader("🌊 Fala")
+        st.metric("Długość fali", f"{300/f:.2f}m")
     with c3:
+        st.subheader("📍 QTH")
         la = st.number_input("Lat", 52.23); lo = st.number_input("Lon", 21.01)
-        st.info(f"QTH: {latlon_to_maidenhead(la, lo)}")
+        st.info(f"Locator: {latlon_to_maidenhead(la, lo)}")
 
 # 9. WEBSDR
 with tabs[8]:
     st.header("🌐 WebSDR")
     st.dataframe(pd.DataFrame(websdr_list), column_config={"Link": st.column_config.LinkColumn("Link", display_text="Otwórz 🔗")}, use_container_width=True, hide_index=True)
 
-# 10. LOGBOOK (ULEPSZONY - BAZA PLIKOWA)
+# 10. LOGBOOK (TRWAŁY - PLIK CSV)
 with tabs[9]:
     st.header("📝 Dziennik Nasłuchów (Logbook)")
-    st.markdown("Twoja osobista baza łączności. Dane są zapisywane w pliku na serwerze.")
+    st.markdown("Twoja osobista baza łączności. Dane zapisywane w pliku `radio_logbook.csv`.")
     
-    # Ładowanie danych
+    # Ładowanie danych z pliku
     if 'logbook_df' not in st.session_state:
         st.session_state.logbook_df = load_logbook()
 
@@ -318,7 +397,7 @@ with tabs[9]:
                     "Raport": r_in
                 }])
                 st.session_state.logbook_df = pd.concat([st.session_state.logbook_df, new_entry], ignore_index=True)
-                save_logbook(st.session_state.logbook_df)
+                save_logbook(st.session_state.logbook_df) # Zapis do pliku
                 st.success("Zapisano!")
             else:
                 st.error("Podaj przynajmniej częstotliwość i znak.")
@@ -337,4 +416,4 @@ with tabs[9]:
     )
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v11.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v12.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
