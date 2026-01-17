@@ -108,6 +108,7 @@ data_freq = [
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Międzynarodowa Stacja Kosmiczna"},
     {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio / APRS"},
     {"MHz": "137.100", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "Mapy pogodowe (APT)"},
+    {"MHz": "137.620", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "Mapy pogodowe (APT)"},
     
     # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Krajowy)", "Opis": "Kanał Ratowniczo-Gaśniczy (B028)"},
@@ -131,7 +132,7 @@ data_freq = [
 with st.sidebar:
     st.header("🎛️ Panel Kontrolny")
     
-    # Zegar UTC (Dynamiczny hack - odświeża się przy interakcji)
+    # Zegar UTC
     st.markdown(f"""
     <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
         <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
@@ -185,7 +186,7 @@ with tab1:
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
 
-                # NOWOŚĆ: Efekt dnia i nocy na mapie
+                # MAPA - POPRAWIONA KONFIGURACJA (Usunięto błędny parametr)
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
@@ -193,7 +194,7 @@ with tab1:
                         showland=True, landcolor="#2A2A2A", # Ciemniejszy motyw lądu
                         showocean=True, oceancolor="#111111", # Ciemny ocean
                         showcountries=True, countrycolor="#555555",
-                        showdaylight=True, # Cień Ziemi!
+                        # USUNIĘTO: showdaylight=True (to powodowało błąd!)
                         resolution=110
                     ),
                     paper_bgcolor="rgba(0,0,0,0)",
@@ -229,36 +230,34 @@ with tab1:
         )
 
 # ===========================
-# ZAKŁADKA 2: Biblioteka Dźwięków (NOWOŚĆ)
+# ZAKŁADKA 2: Biblioteka Dźwięków
 # ===========================
 with tab2:
     st.header("🎧 Biblioteka Sygnałów Radiowych")
-    st.markdown("Nie wiesz czego szukasz? Posłuchaj próbek popularnych sygnałów, aby rozpoznać je na wodospadzie (Waterfall) SDR.")
+    st.markdown("Nie wiesz czego szukasz? Posłuchaj próbek popularnych sygnałów.")
     
     col_snd1, col_snd2 = st.columns(2)
     
     with col_snd1:
         st.subheader("🛰️ Satelity Pogodowe")
         st.markdown("**NOAA APT (137 MHz)** - Charakterystyczne 'tykanie' (2Hz).")
-        # Link do pliku public domain z Wikimedia Commons
         st.audio("https://upload.wikimedia.org/wikipedia/commons/2/2c/Noaa_apt_signal.ogg", format="audio/ogg")
         
         st.divider()
         
         st.subheader("📟 Packet Radio / APRS")
-        st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty' przesyłające pozycję GPS.")
+        st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty'.")
         st.audio("https://upload.wikimedia.org/wikipedia/commons/7/7b/AX.25_1200_baud_packet_radio.ogg", format="audio/ogg")
 
     with col_snd2:
         st.subheader("🖼️ SSTV (ISS)")
-        st.markdown("**SSTV (Slow Scan TV)** - Dźwięk przesyłający obrazek z kosmosu.")
+        st.markdown("**SSTV** - Dźwięk przesyłający obrazek z kosmosu.")
         st.audio("https://upload.wikimedia.org/wikipedia/commons/d/d2/SSTV_transmission_Scottie_1.ogg", format="audio/ogg")
 
         st.divider()
 
         st.subheader("👮 Służby (Analogowe)")
-        st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa używana przez Policję/PSP (tam gdzie analog).")
-        # Symulacja szumu squelch i głosu (placeholder)
+        st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa.")
         st.caption("Brzmi jak zwykła rozmowa telefoniczna, często z szumem w tle.")
 
 # ===========================
@@ -281,18 +280,17 @@ with tab3:
         st.markdown("""
         Radio bez prądu to cegła.
         * Miej zapas baterii AA/AAA.
-        * Baofeng: miej kabel USB do ładowania z powerbanka.
-        * Nie nadawaj bez potrzeby (nadawanie zużywa 10x więcej prądu).
+        * Baofeng: miej kabel USB.
+        * Nie nadawaj bez potrzeby.
         """)
     with c3:
         st.info("### 3. Komunikacja")
         st.markdown("""
         Mów krótko i zwięźle.
-        * **KTO** woła (Twój znak/imię)
+        * **KTO** woła
         * **KOGO** wołasz
         * **CO** chcesz przekazać
-        * *"Tu Marek, wywołuję Adama, odbiór."*
         """)
 
 st.markdown("---")
-st.caption("Radio Command Center v2.0 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Radio Command Center v2.1 | Dane satelitarne: CelesTrak | Czas: UTC")
