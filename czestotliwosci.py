@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import os
-import time
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
@@ -155,7 +154,7 @@ with tab1:
             if lat is not None:
                 fig = go.Figure()
                 
-                # Trajektoria (Niebieska)
+                # Trajektoria
                 fig.add_trace(go.Scattergeo(
                     lat=path_lat, lon=path_lon, mode="lines",
                     line=dict(color="blue", width=2, dash="dot"), name="Orbita"
@@ -170,15 +169,15 @@ with tab1:
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
 
-                # MAPA - POWRÓT DO JASNEGO STYLU
+                # MAPA JASNA
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
                         projection_type="natural earth", 
                         showland=True, 
-                        landcolor="rgb(230, 230, 230)", # Jasny ląd
+                        landcolor="rgb(230, 230, 230)",
                         showocean=True, 
-                        oceancolor="rgb(200, 225, 255)", # Jasny ocean
+                        oceancolor="rgb(200, 225, 255)",
                         showcountries=True,
                         resolution=110
                     ),
@@ -211,34 +210,38 @@ with tab1:
             use_container_width=True, hide_index=True, height=450
         )
 
-# --- ZAKŁADKA 2 (POPRAWIONE LINKI AUDIO MP3) ---
+# --- ZAKŁADKA 2 (YOUTUBE - TO ZADZIAŁA NA 100%) ---
 with tab2:
     st.header("🎧 Biblioteka Sygnałów Radiowych")
-    st.markdown("Nie wiesz czego szukasz? Posłuchaj próbek popularnych sygnałów.")
+    st.markdown("Nie wiesz czego szukasz? Odsłuchaj nagrania (YouTube).")
     
     col_snd1, col_snd2 = st.columns(2)
     
     with col_snd1:
         st.subheader("🛰️ Satelity Pogodowe")
         st.markdown("**NOAA APT (137 MHz)** - Charakterystyczne 'tykanie' (2Hz).")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/2/2c/Noaa_apt_signal.ogg/Noaa_apt_signal.ogg.mp3", format="audio/mp3")
+        # Link do nagrania NOAA na YouTube
+        st.video("https://www.youtube.com/watch?v=sO7C12_yQPY")
         
         st.divider()
         
         st.subheader("📟 Packet Radio / APRS")
         st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty'.")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/7/7b/AX.25_1200_baud_packet_radio.ogg/AX.25_1200_baud_packet_radio.ogg.mp3", format="audio/mp3")
+        # Link do nagrania APRS
+        st.video("https://www.youtube.com/watch?v=h6qCg82XyME")
 
     with col_snd2:
         st.subheader("🖼️ SSTV (ISS)")
         st.markdown("**SSTV** - Dźwięk przesyłający obrazek z kosmosu.")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/d/d2/SSTV_transmission_Scottie_1.ogg/SSTV_transmission_Scottie_1.ogg.mp3", format="audio/mp3")
+        # Link do nagrania SSTV
+        st.video("https://www.youtube.com/watch?v=9jR4O_dZ-hY")
 
         st.divider()
 
         st.subheader("👮 Służby (Analogowe)")
         st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa.")
-        st.info("Brzmi jak zwykła rozmowa telefoniczna, często z szumem w tle.")
+        # Link do nagrania komunikacji radiowej (przykład)
+        st.video("https://www.youtube.com/watch?v=eYLL7f11tM0")
 
 # --- ZAKŁADKA 3 ---
 with tab3:
@@ -271,4 +274,4 @@ with tab3:
         """)
 
 st.markdown("---")
-st.caption("Radio Command Center v2.3 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Radio Command Center v2.4 | Dane satelitarne: CelesTrak | Czas: UTC")
