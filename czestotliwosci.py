@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 # ===========================
-# 0. FUNKCJE POMOCNICZE (Licznik, Czas)
+# 0. FUNKCJE POMOCNICZE
 # ===========================
 def update_counter():
     counter_file = "counter.txt"
@@ -41,19 +41,17 @@ def get_utc_time():
     return datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
 
 # ===========================
-# 1. LOGIKA SATELITARNA (Backend)
+# 1. LOGIKA SATELITARNA
 # ===========================
 
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
-    """Pobiera TLE z mechanizmem Fallback."""
     FALLBACK_TLE = (
         "1 25544U 98067A   24017.54519514  .00016149  00000+0  29290-3 0  9993",
         "2 25544  51.6415 158.8530 0005786 244.1866 179.9192 15.49622591435056"
     )
     url = "https://celestrak.org/NORAD/elements/stations.txt"
     headers = {"User-Agent": "Mozilla/5.0"}
-
     try:
         resp = requests.get(url, headers=headers, timeout=5)
         resp.raise_for_status()
@@ -100,24 +98,19 @@ def get_satellite_position(line1, line2):
         return None, None, [], []
 
 # ===========================
-# 2. BAZA DANYCH CZĘSTOTLIWOŚCI
+# 2. BAZA DANYCH
 # ===========================
 
 data_freq = [
-    # --- SATELITY ---
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Międzynarodowa Stacja Kosmiczna"},
     {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio / APRS"},
     {"MHz": "137.100", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "Mapy pogodowe (APT)"},
     {"MHz": "137.620", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "Mapy pogodowe (APT)"},
-    
-    # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Krajowy)", "Opis": "Kanał Ratowniczo-Gaśniczy (B028)"},
     {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Współdziałanie)", "Opis": "Kanał dowodzenia"},
     {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "Radio-Stop / Szlakowy"},
     {"MHz": "169.000", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Medyczne", "Nazwa": "Współdz. Med.", "Opis": "Lotnicze Pogotowie / Karetki"},
     {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Ope.)", "Opis": "Przykładowy kanał operacyjny LPR"},
-
-    # --- CYWILNE ---
     {"MHz": "446.006", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 1", "Opis": "Walkie-talkie bez licencji"},
     {"MHz": "446.031", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 3", "Opis": "Kanał preppersów (Reguła 3-3-3)"},
     {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Ratunkowy morski"},
@@ -125,25 +118,19 @@ data_freq = [
 ]
 
 # ===========================
-# 3. INTERFEJS APLIKACJI
+# 3. INTERFEJS
 # ===========================
 
-# --- PASEK BOCZNY (Sidebar) ---
 with st.sidebar:
     st.header("🎛️ Panel Kontrolny")
-    
-    # Zegar UTC
     st.markdown(f"""
     <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
         <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
         <div style="font-size: 1.8em; font-weight: bold; color: #00ff41; font-family: monospace;">{get_utc_time()}</div>
     </div>
     """, unsafe_allow_html=True)
-    
     st.write("---")
-    st.markdown("**Statystyki:**")
     st.write(f"👁️ Odwiedzin: **{visit_count}**")
-    
     st.info("""
     **Szybkie Q-Kody:**
     * **QTH:** Lokalizacja
@@ -154,12 +141,9 @@ with st.sidebar:
 
 st.title("📡 Radio Command Center")
 
-# Zakładki
 tab1, tab2, tab3 = st.tabs(["📡 Tracker & Skaner", "🎧 Jak to brzmi?", "🆘 Łączność Kryzysowa"])
 
-# ===========================
-# ZAKŁADKA 1: Tracker ISS
-# ===========================
+# --- ZAKŁADKA 1 ---
 with tab1:
     col_map, col_data = st.columns([3, 2])
 
@@ -171,10 +155,10 @@ with tab1:
             if lat is not None:
                 fig = go.Figure()
                 
-                # Trajektoria
+                # Trajektoria (Niebieska)
                 fig.add_trace(go.Scattergeo(
                     lat=path_lat, lon=path_lon, mode="lines",
-                    line=dict(color="cyan", width=2, dash="dot"), name="Orbita"
+                    line=dict(color="blue", width=2, dash="dot"), name="Orbita"
                 ))
 
                 # Ikona ISS
@@ -186,19 +170,18 @@ with tab1:
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
 
-                # MAPA - POPRAWIONA KONFIGURACJA (Usunięto błędny parametr)
+                # MAPA - POWRÓT DO JASNEGO STYLU
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
                         projection_type="natural earth", 
-                        showland=True, landcolor="#2A2A2A", # Ciemniejszy motyw lądu
-                        showocean=True, oceancolor="#111111", # Ciemny ocean
-                        showcountries=True, countrycolor="#555555",
-                        # USUNIĘTO: showdaylight=True (to powodowało błąd!)
+                        showland=True, 
+                        landcolor="rgb(230, 230, 230)", # Jasny ląd
+                        showocean=True, 
+                        oceancolor="rgb(200, 225, 255)", # Jasny ocean
+                        showcountries=True,
                         resolution=110
                     ),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
                     showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
@@ -211,7 +194,6 @@ with tab1:
     with col_data:
         st.subheader("Baza Częstotliwości")
         df = pd.DataFrame(data_freq)
-        
         c_search, c_filter = st.columns([2,1])
         with c_search: search = st.text_input("🔍 Szukaj częstotliwości", "")
         with c_filter: cat_filter = st.multiselect("Filtr", df["Kategoria"].unique())
@@ -229,9 +211,7 @@ with tab1:
             use_container_width=True, hide_index=True, height=450
         )
 
-# ===========================
-# ZAKŁADKA 2: Biblioteka Dźwięków
-# ===========================
+# --- ZAKŁADKA 2 (POPRAWIONE LINKI AUDIO MP3) ---
 with tab2:
     st.header("🎧 Biblioteka Sygnałów Radiowych")
     st.markdown("Nie wiesz czego szukasz? Posłuchaj próbek popularnych sygnałów.")
@@ -241,28 +221,26 @@ with tab2:
     with col_snd1:
         st.subheader("🛰️ Satelity Pogodowe")
         st.markdown("**NOAA APT (137 MHz)** - Charakterystyczne 'tykanie' (2Hz).")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/2/2c/Noaa_apt_signal.ogg", format="audio/ogg")
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/2/2c/Noaa_apt_signal.ogg/Noaa_apt_signal.ogg.mp3", format="audio/mp3")
         
         st.divider()
         
         st.subheader("📟 Packet Radio / APRS")
         st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty'.")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/7/7b/AX.25_1200_baud_packet_radio.ogg", format="audio/ogg")
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/7/7b/AX.25_1200_baud_packet_radio.ogg/AX.25_1200_baud_packet_radio.ogg.mp3", format="audio/mp3")
 
     with col_snd2:
         st.subheader("🖼️ SSTV (ISS)")
         st.markdown("**SSTV** - Dźwięk przesyłający obrazek z kosmosu.")
-        st.audio("https://upload.wikimedia.org/wikipedia/commons/d/d2/SSTV_transmission_Scottie_1.ogg", format="audio/ogg")
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/transcoded/d/d2/SSTV_transmission_Scottie_1.ogg/SSTV_transmission_Scottie_1.ogg.mp3", format="audio/mp3")
 
         st.divider()
 
         st.subheader("👮 Służby (Analogowe)")
         st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa.")
-        st.caption("Brzmi jak zwykła rozmowa telefoniczna, często z szumem w tle.")
+        st.info("Brzmi jak zwykła rozmowa telefoniczna, często z szumem w tle.")
 
-# ===========================
-# ZAKŁADKA 3: Łączność Kryzysowa
-# ===========================
+# --- ZAKŁADKA 3 ---
 with tab3:
     st.header("🆘 Procedury Awaryjne")
     
@@ -293,4 +271,4 @@ with tab3:
         """)
 
 st.markdown("---")
-st.caption("Radio Command Center v2.1 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Radio Command Center v2.3 | Dane satelitarne: CelesTrak | Czas: UTC")
