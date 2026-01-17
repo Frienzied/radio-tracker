@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import os
+import pytz  # Do obsługi stref czasowych
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
@@ -38,6 +39,21 @@ visit_count = update_counter()
 
 def get_utc_time():
     return datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
+
+# Funkcja do pobierania czasu w konkretnej strefie
+def get_time_in_zone(zone_name):
+    try:
+        tz = pytz.timezone(zone_name)
+        return datetime.now(tz).strftime("%H:%M")
+    except:
+        return "--:--"
+
+def get_date_in_zone(zone_name):
+    try:
+        tz = pytz.timezone(zone_name)
+        return datetime.now(tz).strftime("%d.%m.%Y")
+    except:
+        return ""
 
 # ===========================
 # 1. LOGIKA SATELITARNA
@@ -137,7 +153,7 @@ data_freq = [
 with st.sidebar:
     st.header("🎛️ Panel Kontrolny")
     
-    # Zegar UTC
+    # Zegar UTC (Sidebar)
     st.markdown(f"""
     <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
         <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
@@ -148,31 +164,29 @@ with st.sidebar:
     st.write("---")
     st.write(f"👁️ Odwiedzin: **{visit_count}**")
     
-    # ROZBUDOWANY SŁOWNICZEK
     with st.expander("📚 Słowniczek Radiowy", expanded=True):
         st.markdown("""
-        * **Squelch (SQ):** Blokada szumów. Ustawiasz tak, aby radio milczało, gdy nikt nie nadaje, a "otwierało się" na rozmowę.
-        * **AM:** Modulacja amplitudy. Używana w **Lotnictwie** i na **CB Radio**. Zapewnia brak efektu "wypierania" (słychać dwóch rozmówców naraz).
-        * **NFM / WFM:** Wąski (Służby/PMR) i Szeroki (Radio FM/NOAA) FM. Źle dobrany FM powoduje cichy lub charczący dźwięk.
-        * **CTCSS / DCS:** "Podtony". Niesłyszalne dla ucha kody, które otwierają przemiennik. Bez nich przemiennik Cię nie usłyszy.
-        * **Shift (Offset):** Różnica częstotliwości nadawania i odbioru. Niezbędne do pracy przez przemienniki (np. ISS Repeater).
-        * **VFO:** Tryb, gdzie ręcznie wpisujesz częstotliwość z klawiatury.
+        * **Squelch (SQ):** Blokada szumów. Pokrętło, które wycisza radio gdy nikt nie mówi.
+        * **AM:** Modulacja amplitudy. Używana w **Lotnictwie** i na **CB Radio**.
+        * **NFM (Narrow FM):** Wąski FM. Standard dla krótkofalówek (PMR, Baofeng), Służb i Kolei.
+        * **WFM (Wide FM):** Szeroki FM. Używany przez stacje radiowe (RMF, Zet) oraz satelity NOAA.
+        * **CTCSS (Podtony):** "Niewidzialny kod" otwierający przemiennik. Bez niego przemiennik Cię nie usłyszy.
+        * **Shift (Offset):** Różnica częstotliwości (nadajesz na innej, słuchasz na innej). Wymagane na przemiennikach.
         * **73:** Krótkofalarskie "Pozdrawiam".
-        * **DX:** Łączność na bardzo dużą odległość.
+        * **QTH:** Moja lokalizacja.
         """)
 
-    # CIEKAWOSTKI
     with st.expander("💡 Czy wiesz że?", expanded=False):
         st.markdown("""
-        * **Dlaczego samoloty używają AM?** W modulacji FM silniejszy sygnał całkowicie wycina słabszy (Capture Effect). W lotnictwie to niebezpieczne – w AM kontroler słyszy (jako pisk/zakłócenie), że dwie osoby nadają jednocześnie.
-        * **Efekt Dopplera:** Gdy ISS nadlatuje, słyszysz go ok. 3 kHz **wyżej** (np. 145.803), a gdy odlatuje – **niżej** (145.797). Musisz kręcić gałką strojenia!
-        * **Zasięg radia ręcznego:** Zależy od horyzontu. Stojąc na ziemi masz zasięg ~5km. Ale z ISS (400 km w górę) usłyszysz sygnał na ponad 2000 km!
+        * **Samoloty i AM:** AM pozwala usłyszeć dwie osoby mówiące naraz (jako pisk). W FM silniejszy sygnał wyciąłby słabszy, co w lotnictwie jest niebezpieczne.
+        * **Efekt Dopplera:** Gdy satelita nadlatuje, słyszysz go na wyższej częstotliwości, a gdy odlatuje - na niższej. Trzeba ciągle kręcić gałką!
+        * **Zasięg:** Z ręczniaka (5W) usłyszysz ISS z odległości 2000 km, bo w kosmosie nie ma przeszkód!
         """)
 
 st.title("📡 Centrum Dowodzenia Radiowego")
 
 # Zakładki
-tab1, tab2 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa"])
+tab1, tab2, tab3 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa", "🌍 Czas na Świecie"])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
 with tab1:
@@ -185,14 +199,10 @@ with tab1:
             lat, lon, path_lat, path_lon = get_satellite_position(l1, l2)
             if lat is not None:
                 fig = go.Figure()
-                
-                # Trajektoria
                 fig.add_trace(go.Scattergeo(
                     lat=path_lat, lon=path_lon, mode="lines",
                     line=dict(color="blue", width=2, dash="dot"), name="Orbita"
                 ))
-
-                # Ikona ISS
                 fig.add_trace(go.Scattergeo(
                     lat=[lat], lon=[lon], 
                     mode="text", text=["🛰️"], textfont=dict(size=30),
@@ -200,34 +210,27 @@ with tab1:
                     hoverinfo="text",
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
-
-                # Mapa jasna
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
                         projection_type="natural earth", 
-                        showland=True, 
-                        landcolor="rgb(230, 230, 230)",
-                        showocean=True, 
-                        oceancolor="rgb(200, 225, 255)",
-                        showcountries=True,
-                        resolution=110
+                        showland=True, landcolor="rgb(230, 230, 230)",
+                        showocean=True, oceancolor="rgb(200, 225, 255)",
+                        showcountries=True, resolution=110
                     ),
                     showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button("🔄 Odśwież pozycję"): st.rerun()
             else:
-                st.error("Błąd obliczeń orbitalnych.")
+                st.error("Błąd obliczeń.")
         else:
-            st.error("Błąd pobierania danych TLE.")
+            st.error("Błąd TLE.")
 
     with col_data:
         st.subheader("Baza Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
         c_search, c_filter = st.columns([2,1])
-        
-        # POPRAWIONE: Polski placeholder zamiast "Choose options"
         with c_search: 
             search = st.text_input("🔍 Szukaj...", placeholder="Np. PMR, ISS")
         with c_filter: 
@@ -250,33 +253,70 @@ with tab1:
 # --- ZAKŁADKA 2: KRYZYSOWE ---
 with tab2:
     st.header("🆘 Procedury Awaryjne (Polska)")
-    
     c1, c2, c3 = st.columns(3)
     with c1:
         st.error("### 1. Reguła 3-3-3")
         st.markdown("""
         System nasłuchu w sytuacji kryzysowej (brak GSM):
         * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
-        * **Ile?** 3 minuty nasłuchu, potem wywołanie.
-        * **Gdzie?** * PMR Kanał 3 (446.031 MHz)
-            * CB Kanał 3 (26.980 MHz AM)
+        * **Ile?** 3 minuty nasłuchu.
+        * **Gdzie?** PMR Kanał 3 / CB Kanał 3
         """)
     with c2:
-        st.warning("### 2. Ograniczenia Sprzętu")
+        st.warning("### 2. Sprzęt")
         st.markdown("""
-        * **Baofeng UV-5R:** Nie odbiera pasma lotniczego (AM). Nie nadaje się do nasłuchu CB (inne pasmo).
-        * **Zasięg PMR:** W mieście realnie 500m - 1km. W górach do 5-10km.
-        * **Antena:** Fabryczna "gumowa" antena to najsłabsze ogniwo. Warto mieć dłuższą (np. Nagoya 771).
+        * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
+        * **Zasięg:** Miasto: 1km. Otwarty teren: 5km. Góry/Kosmos: >100km.
+        * **Antena:** Długa antena (np. Nagoya) poprawia odbiór o 50%.
         """)
     with c3:
-        st.info("### 3. Komunikacja Kryzysowa")
+        st.info("### 3. Komunikacja")
         st.markdown("""
         **RAPORT S.A.L.T:**
-        * **S (Size):** Ile osób/wielkość zdarzenia?
+        * **S (Size):** Ile osób?
         * **A (Activity):** Co się dzieje?
-        * **L (Location):** Gdzie jesteście?
-        * **T (Time):** Kiedy to się stało?
+        * **L (Location):** Gdzie?
+        * **T (Time):** Kiedy?
         """)
 
+# --- ZAKŁADKA 3: STREFY CZASOWE (NOWOŚĆ) ---
+with tab3:
+    st.header("🌍 Czas na Świecie")
+    st.markdown("Aktualny czas w kluczowych strefach dla radioamatorów i nasłuchowców.")
+
+    # Definicja stref do wyświetlenia
+    zones = [
+        ("UTC (Zulu)", "UTC"),
+        ("Polska (Warszawa)", "Europe/Warsaw"),
+        ("USA (New York)", "America/New_York"),
+        ("USA (Los Angeles)", "America/Los_Angeles"),
+        ("Japonia (Tokio)", "Asia/Tokyo"),
+        ("Australia (Sydney)", "Australia/Sydney")
+    ]
+
+    # Wyświetlanie w rzędach po 3
+    cols = st.columns(3)
+    for i, (name, zone) in enumerate(zones):
+        with cols[i % 3]:
+            time_str = get_time_in_zone(zone)
+            date_str = get_date_in_zone(zone)
+            
+            # Stylizacja "zegara"
+            st.markdown(f"""
+            <div style="
+                background-color: #1E1E1E; 
+                padding: 15px; 
+                border-radius: 10px; 
+                border: 1px solid #444; 
+                text-align: center;
+                margin-bottom: 20px;">
+                <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">{name}</div>
+                <div style="color: #FFF; font-size: 2.2em; font-family: monospace; font-weight: bold;">{time_str}</div>
+                <div style="color: #666; font-size: 0.8em;">{date_str}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.caption("Czas automatycznie uwzględnia czas letni/zimowy (DST).")
+
 st.markdown("---")
-st.caption("Radio Command Center v3.2 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v4.0 | Dane: CelesTrak | Czas: UTC")
