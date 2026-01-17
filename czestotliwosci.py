@@ -38,7 +38,7 @@ def update_counter():
 visit_count = update_counter()
 
 def get_utc_time():
-    return datetime.now(timezone.utc).strftime("%H:%M UTC") # Skrócony format bez sekund dla estetyki
+    return datetime.now(timezone.utc).strftime("%H:%M UTC")
 
 def get_time_in_zone(zone_name):
     try:
@@ -209,7 +209,7 @@ data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 # 5. INTERFEJS APLIKACJI
 # ===========================
 
-# --- NAGŁÓWEK (ZAMIAST SIDEBARA) ---
+# --- NAGŁÓWEK ---
 c_title, c_clock, c_visits = st.columns([3, 1, 1])
 
 with c_title:
@@ -230,9 +230,10 @@ with c_visits:
     """, unsafe_allow_html=True)
 
 
-# --- ZAKŁADKI (5 ZAKŁADEK) ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# --- ZAKŁADKI (TERAZ 6 ZAKŁADEK - DODANO POGODĘ) ---
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📡 Tracker & Skaner", 
+    "☀️ Pogoda Kosmiczna", # <--- NOWA ZAKŁADKA
     "🆘 Łączność Kryzysowa", 
     "🌍 Czas na Świecie", 
     "📻 Stacje Globalne",
@@ -301,8 +302,47 @@ with tab1:
             use_container_width=True, hide_index=True, height=450
         )
 
-# --- ZAKŁADKA 2: KRYZYSOWE ---
+# --- ZAKŁADKA 2: POGODA KOSMICZNA (NOWA) ---
 with tab2:
+    st.header("☀️ Pogoda Kosmiczna & Propagacja")
+    st.markdown("Aktualne warunki do łączności dalekiego zasięgu (DX) na falach krótkich (HF) i VHF.")
+    
+    col_solar, col_info = st.columns([1, 1])
+    
+    with col_solar:
+        # Widget N0NBH - standard branżowy, dane na żywo
+        st.image("https://www.hamqsl.com/solar101vhf.php", caption="Dane na żywo: N0NBH", use_container_width=False)
+        st.markdown("---")
+        # Mapa Greyline (Dzień/Noc)
+        st.image("https://www.hamqsl.com/solarmap.php", caption="Mapa Dzień/Noc (Greyline)", use_container_width=True)
+
+    with col_info:
+        st.subheader("📉 Jak czytać dane?")
+        
+        st.success("### SFI (Solar Flux Index)")
+        st.markdown("""
+        "Paliwo" dla fal radiowych. Im wyższa liczba, tym lepsze odbicia od jonosfery.
+        * **< 70:** Słabe warunki (Drut kolczasty zamiast anteny).
+        * **70 - 100:** Średnie warunki.
+        * **> 100:** Dobre warunki (Europa/USA słyszalne głośno).
+        * **> 150:** Rewelacja! Łączności z Antypodami.
+        """)
+        
+        st.error("### K-Index (Burze Magnetyczne)")
+        st.markdown("""
+        Poziom zakłóceń ziemskiego pola magnetycznego. Tu chcemy jak najmniej!
+        * **0 - 2:** Cisza, czysty odbiór (Super!).
+        * **3 - 4:** Lekkie zakłócenia.
+        * **> 5:** Burza geomagnetyczna. Szumy, zaniki sygnału, możliwe zorze polarne.
+        """)
+        
+        st.info("### Wskazówka")
+        st.markdown("""
+        **Szara Linia (Greyline):** Popatrz na mapę. Pasmo zmierzchu/świtu (przejście dzień-noc) to magiczny czas. Wzdłuż tej linii sygnał radiowy może okrążyć Ziemię! Wtedy najlepiej słuchać dalekich stacji.
+        """)
+
+# --- ZAKŁADKA 3: KRYZYSOWE ---
+with tab3:
     st.header("🆘 Procedury Awaryjne (Polska)")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -330,8 +370,8 @@ with tab2:
         * **T (Time):** Kiedy?
         """)
 
-# --- ZAKŁADKA 3: STREFY CZASOWE ---
-with tab3:
+# --- ZAKŁADKA 4: STREFY CZASOWE ---
+with tab4:
     st.header("🌍 Czas na Świecie")
     
     zones = [
@@ -362,8 +402,8 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
-# --- ZAKŁADKA 4: STACJE GLOBALNE ---
-with tab4:
+# --- ZAKŁADKA 5: STACJE GLOBALNE ---
+with tab5:
     st.header("📻 Globalne Stacje Radiowe (LW/MW/SW)")
     st.markdown("Lista stacji o zasięgu globalnym lub kontynentalnym.")
     
@@ -382,8 +422,8 @@ with tab4:
         hide_index=True
     )
 
-# --- ZAKŁADKA 5: SŁOWNIK I CIEKAWOSTKI (NOWA!) ---
-with tab5:
+# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI ---
+with tab6:
     st.header("📚 Edukacja Radiowa")
     
     col_dict, col_facts = st.columns(2)
@@ -419,4 +459,4 @@ with tab5:
         """)
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v6.0 | Dane: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v6.1 | Dane: CelesTrak | Czas: UTC")
