@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import os
-import pytz  # Do obsługi stref czasowych
+import pytz
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
@@ -40,23 +40,97 @@ visit_count = update_counter()
 def get_utc_time():
     return datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
 
-# Funkcja do pobierania czasu w konkretnej strefie
 def get_time_in_zone(zone_name):
     try:
         tz = pytz.timezone(zone_name)
         return datetime.now(tz).strftime("%H:%M")
-    except:
-        return "--:--"
+    except: return "--:--"
 
 def get_date_in_zone(zone_name):
     try:
         tz = pytz.timezone(zone_name)
         return datetime.now(tz).strftime("%d.%m.%Y")
-    except:
-        return ""
+    except: return ""
 
 # ===========================
-# 1. LOGIKA SATELITARNA
+# 1. GENERATORY CZĘSTOTLIWOŚCI
+# ===========================
+
+def generate_pmr_list():
+    """Generuje listę 16 kanałów PMR446."""
+    pmr_list = []
+    base_freq = 446.00625
+    step = 0.0125
+    
+    for i in range(16):
+        channel = i + 1
+        freq = base_freq + (i * step)
+        desc = "Kanał ogólny"
+        
+        # Opisy specjalne
+        if channel == 1: desc = "Najpopularniejszy kanał (dzieci, nianie, budowy)"
+        elif channel == 3: desc = "Kanał PREPPERSÓW (Reguła 3-3-3). Kanał górski (Alpy/Włochy)"
+        elif channel == 8: desc = "Często używany jako wywoławczy (stary standard)"
+        
+        pmr_list.append({
+            "MHz": f"{freq:.5f}",
+            "Pasmo": "PMR",
+            "Mod": "NFM",
+            "Kategoria": "PMR (Walkie-Talkie)",
+            "Nazwa": f"PMR {channel}",
+            "Opis": desc
+        })
+    return pmr_list
+
+def generate_cb_list():
+    """Generuje listę 40 kanałów CB w standardzie PL ('zera')."""
+    # Bazowa lista EU ("piątki") - w Polsce odejmujemy 5 kHz (0.005 MHz)
+    # Zauważ "dziury" między kanałami (alpha channels) - dlatego lista jest "na sztywno" lub z logiką
+    # Dla uproszczenia i pewności używamy tabeli wzorcowej
+    
+    cb_freqs_eu = [
+        26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075, # 1-10
+        27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205, # 11-20
+        27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305, # 21-30 (Uwaga: ch23-25 są pomieszane w standardzie!)
+        27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405  # 31-40
+    ]
+    
+    # Korekta kolejności dla kanałów 23, 24, 25 (Standard CB jest dziwny)
+    # Powyższa lista 21-30: 21, 22, 25, 23, 24... tak to wygląda w częstotliwościach rosnąco,
+    # ale my chcemy po numerach kanałów.
+    # Prawidłowa sekwencja częstotliwości dla kanałów 1-40:
+    base_freqs = [
+        26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075,
+        27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205,
+        27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305,
+        27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405
+    ]
+
+    cb_list = []
+    for i, f_eu in enumerate(base_freqs):
+        channel = i + 1
+        # Konwersja na PL (minus 5 kHz)
+        f_pl = f_eu - 0.005
+        
+        desc = "Kanał ogólny"
+        if channel == 9: desc = "!!! RATUNKOWY !!!"
+        elif channel == 19: desc = "!!! DROGOWY !!! (Antymisiek)"
+        elif channel == 2: desc = "Zwyczajowy kanał TAXI / Piguła"
+        elif channel == 28: desc = "Często stacje bazowe / Wywoławczy w niektórych regionach"
+        elif channel == 3: desc = "Kanał Preppersów (System 3-3-3)"
+
+        cb_list.append({
+            "MHz": f"{f_pl:.3f}",
+            "Pasmo": "CB",
+            "Mod": "AM", # W Polsce głównie AM
+            "Kategoria": "CB Radio (Obywatelskie)",
+            "Nazwa": f"CB Kanał {channel}",
+            "Opis": desc
+        })
+    return cb_list
+
+# ===========================
+# 2. LOGIKA SATELITARNA
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
@@ -112,10 +186,11 @@ def get_satellite_position(line1, line2):
         return None, None, [], []
 
 # ===========================
-# 2. BAZA DANYCH (MERYTORYCZNA)
+# 3. GŁÓWNA BAZA DANYCH
 # ===========================
 
-data_freq = [
+# Lista specjalna (Satelity, Służby, Lotnictwo)
+special_freqs = [
     # --- SATELITY ---
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Region 1 Voice - Główny kanał foniczny ISS"},
     {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio 1200bps / Digipeater"},
@@ -123,31 +198,27 @@ data_freq = [
     {"MHz": "436.795", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "SO-50 (SaudiSat)", "Opis": "Popularny satelita FM (Uplink: 145.850 z tonem 67.0)"},
     {"MHz": "137.100", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "APT - Analogowe zdjęcia Ziemi (przeloty popołudniowe)"},
     {"MHz": "137.620", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "APT - Najstarszy satelita, czasem gubi synchronizację"},
-    {"MHz": "137.9125", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 18", "Opis": "APT - Przeloty poranne i wieczorne"},
-    {"MHz": "137.900", "Pasmo": "VHF", "Mod": "QPSK", "Kategoria": "Satelity", "Nazwa": "Meteor M2-x", "Opis": "Rosyjski satelita cyfrowy (LRPT) - wymaga dekodera cyfrowego"},
-
+    
     # --- LOTNICTWO (AM!) ---
     {"MHz": "121.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Air Guard", "Opis": "Międzynarodowy kanał RATUNKOWY (wymaga radia z AM!)"},
     {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Operacyjny)", "Opis": "Częsty kanał Lotniczego Pogotowia (może się różnić lokalnie)"},
-    {"MHz": "118-136", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Pasmo Lotnicze", "Opis": "Skanowanie (TWR, APP). Wymaga radia z AM (nie zwykły Baofeng)"},
+    {"MHz": "118-136", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Pasmo Lotnicze", "Opis": "Skanowanie (TWR, APP). Wymaga radia z AM."},
 
     # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (B028)", "Opis": "Krajowy Kanał Ratowniczo-Gaśniczy (ogólnopolski)"},
     {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Dowodzenie)", "Opis": "Kanał dowodzenia i współdziałania KDR"},
-    {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "UWAGA: Kolej przechodzi na cyfrowy GSM-R. Kanał zanikający."},
-    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Morski kanał ratunkowy i wywoławczy (Bałtyk/Śródlądowe)"},
+    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Morski kanał ratunkowy i wywoławczy"},
 
-    # --- CYWILNE / OBYWATELSKIE ---
-    {"MHz": "446.00625", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 1", "Opis": "Najpopularniejszy kanał 'Walkie-Talkie' (dzieci, budowy, turyści)"},
-    {"MHz": "446.03125", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 3", "Opis": "Kanał preppersów (Reguła 3-3-3). Kanał górski (Włochy/Alpy)"},
-    {"MHz": "27.180", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": "CB Kanał 19", "Opis": "Drogowy. Standard 'PL' (zera). Antymisiek. Głównie AM."},
-    {"MHz": "27.060", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": "CB Kanał 9", "Opis": "Ratunkowy. Standard 'PL' (zera)."},
-    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "VHF Call", "Opis": "Wywoławcza krótkofalarska (rozmowy lokalne)"},
-    {"MHz": "433.500", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "UHF Call", "Opis": "Wywoławcza krótkofalarska (rzadziej używana)"},
+    # --- HAM ---
+    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Krótkofalarskie", "Nazwa": "VHF Call", "Opis": "Wywoławcza (rozmowy lokalne)"},
+    {"MHz": "433.500", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Krótkofalarskie", "Nazwa": "UHF Call", "Opis": "Wywoławcza (rzadziej używana)"},
 ]
 
+# Łączymy wszystko w jedną wielką listę
+data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
+
 # ===========================
-# 3. INTERFEJS APLIKACJI
+# 4. INTERFEJS APLIKACJI
 # ===========================
 
 with st.sidebar:
@@ -166,21 +237,21 @@ with st.sidebar:
     
     with st.expander("📚 Słowniczek Radiowy", expanded=True):
         st.markdown("""
-        * **Squelch (SQ):** Blokada szumów. Pokrętło, które wycisza radio gdy nikt nie mówi.
-        * **AM:** Modulacja amplitudy. Używana w **Lotnictwie** i na **CB Radio**.
-        * **NFM (Narrow FM):** Wąski FM. Standard dla krótkofalówek (PMR, Baofeng), Służb i Kolei.
-        * **WFM (Wide FM):** Szeroki FM. Używany przez stacje radiowe (RMF, Zet) oraz satelity NOAA.
-        * **CTCSS (Podtony):** "Niewidzialny kod" otwierający przemiennik. Bez niego przemiennik Cię nie usłyszy.
-        * **Shift (Offset):** Różnica częstotliwości (nadajesz na innej, słuchasz na innej). Wymagane na przemiennikach.
-        * **73:** Krótkofalarskie "Pozdrawiam".
-        * **QTH:** Moja lokalizacja.
+        * **Squelch (SQ):** Blokada szumów. Wycisza szum tła.
+        * **AM:** Modulacja amplitudy (Lotnictwo, CB Radio).
+        * **NFM:** Wąski FM (PMR, Służby).
+        * **WFM:** Szeroki FM (Radio komercyjne, NOAA).
+        * **CTCSS:** Kody otwierające przemienniki.
+        * **Shift:** Przesunięcie nadawania (dla przemienników).
+        * **73:** Pozdrowienia.
+        * **QTH:** Lokalizacja.
+        * **DX:** Łączność dalekiego zasięgu.
         """)
 
-    with st.expander("💡 Czy wiesz że?", expanded=False):
+    with st.expander("💡 Ciekawostki", expanded=False):
         st.markdown("""
-        * **Samoloty i AM:** AM pozwala usłyszeć dwie osoby mówiące naraz (jako pisk). W FM silniejszy sygnał wyciąłby słabszy, co w lotnictwie jest niebezpieczne.
-        * **Efekt Dopplera:** Gdy satelita nadlatuje, słyszysz go na wyższej częstotliwości, a gdy odlatuje - na niższej. Trzeba ciągle kręcić gałką!
-        * **Zasięg:** Z ręczniaka (5W) usłyszysz ISS z odległości 2000 km, bo w kosmosie nie ma przeszkód!
+        * **Dlaczego polskie CB to 'Zera'?** Większość świata używa częstotliwości kończących się na 5 (np. 27.185). W Polsce historycznie przyjęto końcówki 0 (27.180). Nowoczesne radia mają przełącznik "EU/PL".
+        * **PMR zasięg:** Rekord łączności PMR446 to ponad 500 km (z góry na górę). W mieście to często tylko 300 metrów.
         """)
 
 st.title("📡 Centrum Dowodzenia Radiowego")
@@ -228,11 +299,11 @@ with tab1:
             st.error("Błąd TLE.")
 
     with col_data:
-        st.subheader("Baza Częstotliwości (PL)")
+        st.subheader("Baza Częstotliwości")
         df = pd.DataFrame(data_freq)
         c_search, c_filter = st.columns([2,1])
         with c_search: 
-            search = st.text_input("🔍 Szukaj...", placeholder="Np. PMR, ISS")
+            search = st.text_input("🔍 Szukaj...", placeholder="Np. Kanał 19, PMR 3")
         with c_filter: 
             cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...")
 
@@ -279,12 +350,10 @@ with tab2:
         * **T (Time):** Kiedy?
         """)
 
-# --- ZAKŁADKA 3: STREFY CZASOWE (NOWOŚĆ) ---
+# --- ZAKŁADKA 3: STREFY CZASOWE ---
 with tab3:
     st.header("🌍 Czas na Świecie")
-    st.markdown("Aktualny czas w kluczowych strefach dla radioamatorów i nasłuchowców.")
-
-    # Definicja stref do wyświetlenia
+    
     zones = [
         ("UTC (Zulu)", "UTC"),
         ("Polska (Warszawa)", "Europe/Warsaw"),
@@ -294,14 +363,11 @@ with tab3:
         ("Australia (Sydney)", "Australia/Sydney")
     ]
 
-    # Wyświetlanie w rzędach po 3
     cols = st.columns(3)
     for i, (name, zone) in enumerate(zones):
         with cols[i % 3]:
             time_str = get_time_in_zone(zone)
             date_str = get_date_in_zone(zone)
-            
-            # Stylizacja "zegara"
             st.markdown(f"""
             <div style="
                 background-color: #1E1E1E; 
@@ -316,7 +382,5 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
-    st.caption("Czas automatycznie uwzględnia czas letni/zimowy (DST).")
-
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v4.0 | Dane: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v4.1 | Dane: CelesTrak | Czas: UTC")
