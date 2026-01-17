@@ -57,21 +57,15 @@ def get_date_in_zone(zone_name):
 # ===========================
 
 def generate_pmr_list():
-    """Generuje listę 16 kanałów PMR446."""
     pmr_list = []
     base_freq = 446.00625
     step = 0.0125
-    
     for i in range(16):
         channel = i + 1
         freq = base_freq + (i * step)
         desc = "Kanał ogólny"
-        
-        # Opisy specjalne
         if channel == 1: desc = "Najpopularniejszy kanał (dzieci, nianie, budowy)"
         elif channel == 3: desc = "Kanał PREPPERSÓW (Reguła 3-3-3). Kanał górski (Alpy/Włochy)"
-        elif channel == 8: desc = "Często używany jako wywoławczy (stary standard)"
-        
         pmr_list.append({
             "MHz": f"{freq:.5f}",
             "Pasmo": "PMR",
@@ -83,46 +77,24 @@ def generate_pmr_list():
     return pmr_list
 
 def generate_cb_list():
-    """Generuje listę 40 kanałów CB w standardzie PL ('zera')."""
-    # Bazowa lista EU ("piątki") - w Polsce odejmujemy 5 kHz (0.005 MHz)
-    # Zauważ "dziury" między kanałami (alpha channels) - dlatego lista jest "na sztywno" lub z logiką
-    # Dla uproszczenia i pewności używamy tabeli wzorcowej
-    
-    cb_freqs_eu = [
-        26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075, # 1-10
-        27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205, # 11-20
-        27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305, # 21-30 (Uwaga: ch23-25 są pomieszane w standardzie!)
-        27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405  # 31-40
-    ]
-    
-    # Korekta kolejności dla kanałów 23, 24, 25 (Standard CB jest dziwny)
-    # Powyższa lista 21-30: 21, 22, 25, 23, 24... tak to wygląda w częstotliwościach rosnąco,
-    # ale my chcemy po numerach kanałów.
-    # Prawidłowa sekwencja częstotliwości dla kanałów 1-40:
     base_freqs = [
         26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075,
         27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205,
         27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305,
         27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405
     ]
-
     cb_list = []
     for i, f_eu in enumerate(base_freqs):
         channel = i + 1
-        # Konwersja na PL (minus 5 kHz)
         f_pl = f_eu - 0.005
-        
         desc = "Kanał ogólny"
         if channel == 9: desc = "!!! RATUNKOWY !!!"
         elif channel == 19: desc = "!!! DROGOWY !!! (Antymisiek)"
-        elif channel == 2: desc = "Zwyczajowy kanał TAXI / Piguła"
-        elif channel == 28: desc = "Często stacje bazowe / Wywoławczy w niektórych regionach"
         elif channel == 3: desc = "Kanał Preppersów (System 3-3-3)"
-
         cb_list.append({
             "MHz": f"{f_pl:.3f}",
             "Pasmo": "CB",
-            "Mod": "AM", # W Polsce głównie AM
+            "Mod": "AM",
             "Kategoria": "CB Radio (Obywatelskie)",
             "Nazwa": f"CB Kanał {channel}",
             "Opis": desc
@@ -130,7 +102,29 @@ def generate_cb_list():
     return cb_list
 
 # ===========================
-# 2. LOGIKA SATELITARNA
+# 2. BAZA DANYCH GLOBALNYCH
+# ===========================
+
+global_stations = [
+    # --- FALE DŁUGIE (LW) ---
+    {"MHz": "0.225", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Polska", "Nazwa": "Polskie Radio Jedynka", "Opis": "Nadajnik w Solcu Kujawskim. Zasięg: cała Europa. Kluczowy w sytuacjach kryzysowych."},
+    {"MHz": "0.198", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "BBC Radio 4", "Opis": "Legendarna stacja brytyjska. Zasięg zachodnia Europa."},
+    {"MHz": "0.153", "Pasmo": "LW (Długie)", "Mod": "AM", "Kategoria": "Europa", "Nazwa": "Radio Romania Antena Satelor", "Opis": "Bardzo silny sygnał z Rumunii (muzyka ludowa)."},
+    
+    # --- FALE KRÓTKIE (SW) - BROADCAST ---
+    {"MHz": "6.000-6.200", "Pasmo": "49m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 49m (Wieczór)", "Opis": "Główne pasmo wieczorne dla stacji europejskich (BBC, RFI)."},
+    {"MHz": "9.400-9.900", "Pasmo": "31m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 31m (Całodobowe)", "Opis": "Najpopularniejsze pasmo międzynarodowe."},
+    {"MHz": "15.100-15.800", "Pasmo": "19m (SW)", "Mod": "AM", "Kategoria": "Świat", "Nazwa": "Pasmo 19m (Dzień)", "Opis": "Stacje dalekiego zasięgu (Chiny, USA) w ciągu dnia."},
+    
+    # --- STACJE UŻYTKOWE / CIEKAWOSTKI ---
+    {"MHz": "4.625", "Pasmo": "SW", "Mod": "USB/AM", "Kategoria": "Utility", "Nazwa": "UVB-76 (The Buzzer)", "Opis": "Rosyjska stacja numeryczna. Nadaje 'brzęczenie' i czasem szyfry od lat 70-tych."},
+    {"MHz": "5.000 / 10.000", "Pasmo": "SW", "Mod": "AM", "Kategoria": "Wzorzec Czasu", "Nazwa": "WWV / WWVH", "Opis": "Amerykański wzorzec czasu. Służy do sprawdzania czy 'fale niosą'."},
+    {"MHz": "14.230", "Pasmo": "20m", "Mod": "SSTV (USB)", "Kategoria": "Ham Radio", "Nazwa": "SSTV Call Freq", "Opis": "Krótkofalowcy przesyłający obrazki (Analogowo)."},
+    {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Lotnictwo", "Nazwa": "RAF Volmet", "Opis": "Pogoda dla lotnictwa (Royal Air Force)."},
+]
+
+# ===========================
+# 3. LOGIKA SATELITARNA
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
@@ -186,39 +180,33 @@ def get_satellite_position(line1, line2):
         return None, None, [], []
 
 # ===========================
-# 3. GŁÓWNA BAZA DANYCH
+# 4. GŁÓWNA BAZA DANYCH
 # ===========================
 
-# Lista specjalna (Satelity, Służby, Lotnictwo)
 special_freqs = [
     # --- SATELITY ---
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Region 1 Voice - Główny kanał foniczny ISS"},
     {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio 1200bps / Digipeater"},
     {"MHz": "437.800", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (Repeater)", "Opis": "Downlink przemiennika (Uplink: 145.990 z tonem 67.0)"},
-    {"MHz": "436.795", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "SO-50 (SaudiSat)", "Opis": "Popularny satelita FM (Uplink: 145.850 z tonem 67.0)"},
     {"MHz": "137.100", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "APT - Analogowe zdjęcia Ziemi (przeloty popołudniowe)"},
-    {"MHz": "137.620", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "APT - Najstarszy satelita, czasem gubi synchronizację"},
     
     # --- LOTNICTWO (AM!) ---
     {"MHz": "121.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Air Guard", "Opis": "Międzynarodowy kanał RATUNKOWY (wymaga radia z AM!)"},
     {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Operacyjny)", "Opis": "Częsty kanał Lotniczego Pogotowia (może się różnić lokalnie)"},
-    {"MHz": "118-136", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Pasmo Lotnicze", "Opis": "Skanowanie (TWR, APP). Wymaga radia z AM."},
 
     # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (B028)", "Opis": "Krajowy Kanał Ratowniczo-Gaśniczy (ogólnopolski)"},
-    {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Dowodzenie)", "Opis": "Kanał dowodzenia i współdziałania KDR"},
     {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Morski kanał ratunkowy i wywoławczy"},
 
     # --- HAM ---
     {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Krótkofalarskie", "Nazwa": "VHF Call", "Opis": "Wywoławcza (rozmowy lokalne)"},
-    {"MHz": "433.500", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Krótkofalarskie", "Nazwa": "UHF Call", "Opis": "Wywoławcza (rzadziej używana)"},
 ]
 
 # Łączymy wszystko w jedną wielką listę
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 4. INTERFEJS APLIKACJI
+# 5. INTERFEJS APLIKACJI
 # ===========================
 
 with st.sidebar:
@@ -237,27 +225,17 @@ with st.sidebar:
     
     with st.expander("📚 Słowniczek Radiowy", expanded=True):
         st.markdown("""
-        * **Squelch (SQ):** Blokada szumów. Wycisza szum tła.
-        * **AM:** Modulacja amplitudy (Lotnictwo, CB Radio).
-        * **NFM:** Wąski FM (PMR, Służby).
-        * **WFM:** Szeroki FM (Radio komercyjne, NOAA).
-        * **CTCSS:** Kody otwierające przemienniki.
-        * **Shift:** Przesunięcie nadawania (dla przemienników).
-        * **73:** Pozdrowienia.
+        * **LW (Long Wave):** Fale długie. Bardzo duży zasięg, nawet przy przeszkodach terenowych.
+        * **SW (Short Wave):** Fale krótkie. Zasięg globalny dzięki odbiciom od jonosfery (szczególnie w nocy).
+        * **AM:** Modulacja amplitudy. Używana w lotnictwie i na falach krótkich.
+        * **Squelch (SQ):** Blokada szumów.
         * **QTH:** Lokalizacja.
-        * **DX:** Łączność dalekiego zasięgu.
-        """)
-
-    with st.expander("💡 Ciekawostki", expanded=False):
-        st.markdown("""
-        * **Dlaczego polskie CB to 'Zera'?** Większość świata używa częstotliwości kończących się na 5 (np. 27.185). W Polsce historycznie przyjęto końcówki 0 (27.180). Nowoczesne radia mają przełącznik "EU/PL".
-        * **PMR zasięg:** Rekord łączności PMR446 to ponad 500 km (z góry na górę). W mieście to często tylko 300 metrów.
         """)
 
 st.title("📡 Centrum Dowodzenia Radiowego")
 
-# Zakładki
-tab1, tab2, tab3 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa", "🌍 Czas na Świecie"])
+# Zakładki - TERAZ 4 ZAKŁADKI
+tab1, tab2, tab3, tab4 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa", "🌍 Czas na Świecie", "📻 Stacje Globalne"])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
 with tab1:
@@ -299,7 +277,7 @@ with tab1:
             st.error("Błąd TLE.")
 
     with col_data:
-        st.subheader("Baza Częstotliwości")
+        st.subheader("Baza Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
         c_search, c_filter = st.columns([2,1])
         with c_search: 
@@ -382,5 +360,32 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
+# --- ZAKŁADKA 4: STACJE GLOBALNE (NOWOŚĆ) ---
+with tab4:
+    st.header("📻 Globalne Stacje Radiowe (LW/MW/SW)")
+    st.markdown("""
+    Lista wybranych stacji o zasięgu globalnym lub kontynentalnym. 
+    **Uwaga:** Na falach krótkich (SW) jakość odbioru zależy od pory dnia, roku i aktywności słonecznej.
+    """)
+    
+    df_global = pd.DataFrame(global_stations)
+    
+    st.dataframe(
+        df_global,
+        column_config={
+            "MHz": st.column_config.TextColumn("Częstotliwość (MHz)", width="medium"),
+            "Pasmo": st.column_config.TextColumn("Pasmo", width="small"),
+            "Mod": st.column_config.TextColumn("Mod", width="small"),
+            "Nazwa": st.column_config.TextColumn("Stacja", width="medium"),
+            "Opis": st.column_config.TextColumn("Opis i Zasięg", width="large"),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    st.info("""
+    ℹ️ **Wskazówka:** Jeśli nie masz odbiornika fal krótkich (SW), możesz posłuchać tych stacji przez internet używając **WebSDR** (np. websdr.ewi.utwente.nl).
+    """)
+
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v4.1 | Dane: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v5.0 | Dane: CelesTrak | Czas: UTC")
