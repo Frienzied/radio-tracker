@@ -35,7 +35,6 @@ def update_counter():
         except ValueError:
             count = 0
             
-    # Inkrementacja (prosta, bez blokowania plików, wystarczy dla hobby)
     count += 1
     
     with open(counter_file, "w") as f:
@@ -43,7 +42,6 @@ def update_counter():
         
     return count
 
-# Pobieramy stan licznika
 visit_count = update_counter()
 
 # ===========================
@@ -117,15 +115,15 @@ data_freq = [
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Międzynarodowa Stacja Kosmiczna"},
     {"MHz": "137.100", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "Mapy pogodowe (APT)"},
     
-    # --- SŁUŻBY (Przykłady - tylko nasłuch!) ---
+    # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Krajowy)", "Opis": "Kanał Ratowniczo-Gaśniczy (B028)"},
     {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Współdziałanie)", "Opis": "Kanał dowodzenia/współdziałania"},
     {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "Radio-Stop / Szlakowy (Znika na rzecz GSM-R!)"},
     {"MHz": "150.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R2)", "Opis": "Radio-Stop / Szlakowy"},
-    {"MHz": "169.000", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Medyczne", "Nazwa": "Współdz. Med.", "Opis": "Lotnicze Pogotowie / Karetki (Zależne od regionu)"},
-    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Ope.)", "Opis": "Przykładowy kanał operacyjny LPR (AM!)"},
+    {"MHz": "169.000", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Medyczne", "Nazwa": "Współdz. Med.", "Opis": "Lotnicze Pogotowie / Karetki"},
+    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Ope.)", "Opis": "Przykładowy kanał operacyjny LPR"},
 
-    # --- CYWILNE / OBYWATELSKIE ---
+    # --- CYWILNE ---
     {"MHz": "446.006", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 1", "Opis": "Walkie-talkie bez licencji"},
     {"MHz": "446.031", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 3", "Opis": "Kanał preppersów (Reguła 3-3-3)"},
     {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Ratunkowy morski"},
@@ -138,21 +136,20 @@ data_freq = [
 
 st.title("📡 Radio Command Center")
 
-# --- LICZNIK (Prawy górny róg) ---
+# --- LICZNIK ---
 st.markdown(
     f"""
     <div style="text-align: right; padding: 5px; font-size: 0.8em; color: gray;">
-    Odwiedzin od restartu: <b>{visit_count}</b>
+    Odwiedzin: <b>{visit_count}</b>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# TABS - Podział na zakładki
 tab1, tab2 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa"])
 
 # ===========================
-# ZAKŁADKA 1: Tracker ISS i Tabela
+# ZAKŁADKA 1: Tracker ISS
 # ===========================
 with tab1:
     col_map, col_data = st.columns([3, 2])
@@ -164,14 +161,24 @@ with tab1:
             lat, lon, path_lat, path_lon = get_satellite_position(l1, l2)
             if lat is not None:
                 fig = go.Figure()
+                
+                # Trajektoria
                 fig.add_trace(go.Scattergeo(
                     lat=path_lat, lon=path_lon, mode="lines",
-                    line=dict(color="red", width=2, dash="dot"), name="Orbita"
+                    line=dict(color="blue", width=2, dash="dot"), name="Orbita"
                 ))
+
+                # POZYCJA ISS - ZMIANA NA EMOJI 🛰️
                 fig.add_trace(go.Scattergeo(
-                    lat=[lat], lon=[lon], mode="markers",
-                    marker=dict(size=15, color="red", symbol="star"), name="ISS Teraz"
+                    lat=[lat], lon=[lon], 
+                    mode="text",  # Tryb tekstowy (emoji)
+                    text=["🛰️"],  # Ikona satelity
+                    textfont=dict(size=25), # Rozmiar ikony
+                    name="ISS Teraz",
+                    hoverinfo="text",
+                    hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
+
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=400,
                     geo=dict(
@@ -192,7 +199,6 @@ with tab1:
         st.subheader("Baza Częstotliwości")
         df = pd.DataFrame(data_freq)
         
-        # Filtry
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             search = st.text_input("🔍 Szukaj", "")
@@ -221,62 +227,38 @@ with tab1:
 # ===========================
 with tab2:
     st.header("🆘 Łączność w Sytuacjach Kryzysowych")
-    st.markdown("Podstawowe informacje dla przygotowanych (Preppers) oraz w sytuacjach awarii sieci GSM.")
-
     c1, c2 = st.columns(2)
 
     with c1:
-        st.info("### 📻 Reguła 3-3-3 (Radio Preppers)")
+        st.info("### 📻 Reguła 3-3-3")
         st.markdown("""
-        System nasłuchu i nadawania w sytuacjach kryzysowych, gdy telefony nie działają.
-        
-        * **Kiedy:** Co **3 godziny** (o 3:00, 6:00, 9:00, 12:00 itd.)
+        * **Kiedy:** Co **3 godziny** (3:00, 6:00, 9:00...)
         * **Jak długo:** Przez **3 minuty**.
-        * **Gdzie (PMR):** Kanał **3** (częstotliwość 446.03125 MHz).
-        * **Gdzie (CB):** Kanał **3** (AM/FM).
-        
-        *Włącz radio o pełnej godzinie. Najpierw słuchaj, potem nadawaj komunikat "Mayday" lub informacyjny.*
+        * **PMR:** Kanał **3** (446.031 MHz).
+        * **CB:** Kanał **3**.
         """)
 
     with c2:
-        st.warning("### 🚓 Prawo i Służby")
+        st.warning("### 🚓 Służby i Prawo")
         st.markdown("""
-        * **Nasłuch:** W Polsce nasłuch pasm niekodowanych (analogowych) jest legalny.
-        * **Nadawanie:** Bez licencji możesz nadawać TYLKO na pasmach **PMR** (0.5W, zintegrowana antena) oraz **CB Radio**.
-        * **Zabronione:** Zakłócanie pasm służb (Policja, PSP, PKP) grozi surową odpowiedzialnością karną!
-        * **Uwaga:** Wiele służb w miastach używa już systemów cyfrowych (TETRA, DMR) - usłyszysz tylko "szum".
+        * **Nasłuch:** Legalny (pasma analogowe).
+        * **Nadawanie:** Tylko PMR i CB bez licencji.
+        * **PKP/PSP:** Zakłócanie surowo karane!
         """)
 
     st.divider()
-
-    st.subheader("📋 Kluczowe kanały ratunkowe (Bez licencji)")
+    st.subheader("📋 Kluczowe kanały (Bez licencji)")
     
-    col_k1, col_k2, col_k3 = st.columns(3)
-    
-    with col_k1:
-        st.success("**PMR 446 (Walkie-Talkie)**")
-        st.markdown("""
-        * **Kanał 3:** Sieć ratunkowa preppersów.
-        * **Kanał 1:** Ogólny wywoławczy (często używany przez turystów/dzieci).
-        * Popularne radia: Motorola T82, Baofeng (tylko nasłuch pasm innych niż PMR!).
-        """)
-        
-    with col_k2:
-        st.success("**CB Radio (27 MHz)**")
-        st.markdown("""
-        * **Kanał 19:** Drogowy (informacje o korkach/wypadkach).
-        * **Kanał 9:** Ratunkowy (tradycyjny, rzadziej używany).
-        * Modulacja w Polsce: Zazwyczaj **AM** (w standardzie "0", nie "5").
-        """)
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.success("**PMR 446**")
+        st.markdown("* **CH 3:** Preppersi\n* **CH 1:** Ogólny")
+    with k2:
+        st.success("**CB Radio**")
+        st.markdown("* **CH 19:** Drogowy\n* **CH 9:** Ratunkowy")
+    with k3:
+        st.error("**Alarmy**")
+        st.markdown("* **S.O.S:** ... --- ...\n* **MAYDAY:** Życie")
 
-    with col_k3:
-        st.error("**Sygnały Alarmowe**")
-        st.markdown("""
-        * **S.O.S:** ... --- ... (3 krótkie, 3 długie, 3 krótkie).
-        * **MAYDAY:** Zagrożenie życia (powtórz 3 razy).
-        * **PAN-PAN:** Awaria, ale bez bezpośredniego zagrożenia życia.
-        """)
-
-# Stopka
 st.markdown("---")
 st.caption("Aplikacja edukacyjna. Autor nie ponosi odpowiedzialności za niewłaściwe użycie sprzętu radiowego.")
