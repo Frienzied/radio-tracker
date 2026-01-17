@@ -42,7 +42,6 @@ def get_utc_time():
 # ===========================
 # 1. LOGIKA SATELITARNA
 # ===========================
-
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
     FALLBACK_TLE = (
@@ -97,27 +96,42 @@ def get_satellite_position(line1, line2):
         return None, None, [], []
 
 # ===========================
-# 2. BAZA DANYCH
+# 2. BAZA DANYCH (WERSJA ROZSZERZONA PL)
 # ===========================
 
 data_freq = [
-    {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Międzynarodowa Stacja Kosmiczna"},
-    {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio / APRS"},
-    {"MHz": "137.100", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "Mapy pogodowe (APT)"},
-    {"MHz": "137.620", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "Mapy pogodowe (APT)"},
-    {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Krajowy)", "Opis": "Kanał Ratowniczo-Gaśniczy (B028)"},
-    {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Współdziałanie)", "Opis": "Kanał dowodzenia"},
-    {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "Radio-Stop / Szlakowy"},
-    {"MHz": "169.000", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Medyczne", "Nazwa": "Współdz. Med.", "Opis": "Lotnicze Pogotowie / Karetki"},
-    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Ope.)", "Opis": "Przykładowy kanał operacyjny LPR"},
-    {"MHz": "446.006", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 1", "Opis": "Walkie-talkie bez licencji"},
-    {"MHz": "446.031", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 3", "Opis": "Kanał preppersów (Reguła 3-3-3)"},
-    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Ratunkowy morski"},
-    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "Call Freq", "Opis": "Wywoławcza krótkofalarska"},
+    # --- SATELITY ---
+    {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Region 1 Voice - Główny kanał foniczny ISS"},
+    {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio 1200bps / Digipeater"},
+    {"MHz": "437.800", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (Repeater)", "Opis": "Downlink przemiennika (Uplink: 145.990 z tonem 67.0)"},
+    {"MHz": "436.795", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "SO-50 (SaudiSat)", "Opis": "Popularny satelita FM (Uplink: 145.850 z tonem 67.0)"},
+    {"MHz": "137.100", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "APT - Analogowe zdjęcia Ziemi (przeloty popołudniowe)"},
+    {"MHz": "137.620", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 15", "Opis": "APT - Najstarszy satelita, czasem gubi synchronizację"},
+    {"MHz": "137.9125", "Pasmo": "VHF", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 18", "Opis": "APT - Przeloty poranne i wieczorne"},
+    {"MHz": "137.900", "Pasmo": "VHF", "Mod": "QPSK", "Kategoria": "Satelity", "Nazwa": "Meteor M2-x", "Opis": "Rosyjski satelita cyfrowy (LRPT) - wymaga dekodera cyfrowego"},
+
+    # --- LOTNICTWO (AM!) ---
+    {"MHz": "121.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Air Guard", "Opis": "Międzynarodowy kanał RATUNKOWY (wymaga radia z AM!)"},
+    {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Operacyjny)", "Opis": "Częsty kanał Lotniczego Pogotowia (może się różnić lokalnie)"},
+    {"MHz": "118-136", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "Pasmo Lotnicze", "Opis": "Skanowanie (TWR, APP). Wymaga radia z AM (nie zwykły Baofeng)"},
+
+    # --- SŁUŻBY ---
+    {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (B028)", "Opis": "Krajowy Kanał Ratowniczo-Gaśniczy (ogólnopolski)"},
+    {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Dowodzenie)", "Opis": "Kanał dowodzenia i współdziałania KDR"},
+    {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "UWAGA: Kolej przechodzi na cyfrowy GSM-R. Kanał zanikający."},
+    {"MHz": "156.800", "Pasmo": "Marine", "Mod": "FM", "Kategoria": "Morskie", "Nazwa": "Kanał 16", "Opis": "Morski kanał ratunkowy i wywoławczy (Bałtyk/Śródlądowe)"},
+
+    # --- CYWILNE / OBYWATELSKIE ---
+    {"MHz": "446.00625", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 1", "Opis": "Najpopularniejszy kanał 'Walkie-Talkie' (dzieci, budowy, turyści)"},
+    {"MHz": "446.03125", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": "PMR 3", "Opis": "Kanał preppersów (Reguła 3-3-3). Kanał górski (Włochy/Alpy)"},
+    {"MHz": "27.180", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": "CB Kanał 19", "Opis": "Drogowy. Standard 'PL' (zera). Antymisiek. Głównie AM."},
+    {"MHz": "27.060", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": "CB Kanał 9", "Opis": "Ratunkowy. Standard 'PL' (zera)."},
+    {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "VHF Call", "Opis": "Wywoławcza krótkofalarska (rozmowy lokalne)"},
+    {"MHz": "433.500", "Pasmo": "70cm", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "UHF Call", "Opis": "Wywoławcza krótkofalarska (rzadziej używana)"},
 ]
 
 # ===========================
-# 3. INTERFEJS
+# 3. INTERFEJS APLIKACJI
 # ===========================
 
 with st.sidebar:
@@ -131,18 +145,19 @@ with st.sidebar:
     st.write("---")
     st.write(f"👁️ Odwiedzin: **{visit_count}**")
     st.info("""
-    **Szybkie Q-Kody:**
-    * **QTH:** Lokalizacja
-    * **QSL:** Potwierdzam
-    * **QRZ:** Kto mnie woła?
-    * **QRT:** Kończę nadawanie
+    **Słowniczek:**
+    * **AM:** Modulacja amplitudy (Lotnictwo, CB).
+    * **NFM:** Wąski FM (Służby, PMR).
+    * **WFM:** Szeroki FM (Satelity NOAA).
+    * **Uplink/Downlink:** Nadawanie/Odbiór.
     """)
 
 st.title("📡 Radio Command Center")
 
-tab1, tab2, tab3 = st.tabs(["📡 Tracker & Skaner", "🎧 Jak to brzmi?", "🆘 Łączność Kryzysowa"])
+# Tylko dwie zakładki - usuwamy problematyczne audio
+tab1, tab2 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa"])
 
-# --- ZAKŁADKA 1 ---
+# --- ZAKŁADKA 1: MAPA I LISTA ---
 with tab1:
     col_map, col_data = st.columns([3, 2])
 
@@ -169,7 +184,7 @@ with tab1:
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
 
-                # MAPA JASNA
+                # Mapa jasna
                 fig.update_layout(
                     margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
@@ -191,11 +206,11 @@ with tab1:
             st.error("Błąd pobierania danych TLE.")
 
     with col_data:
-        st.subheader("Baza Częstotliwości")
+        st.subheader("Baza Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
         c_search, c_filter = st.columns([2,1])
-        with c_search: search = st.text_input("🔍 Szukaj częstotliwości", "")
-        with c_filter: cat_filter = st.multiselect("Filtr", df["Kategoria"].unique())
+        with c_search: search = st.text_input("🔍 Szukaj...", "")
+        with c_filter: cat_filter = st.multiselect("Kategoria", df["Kategoria"].unique())
 
         if search: df = df[df.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
         if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
@@ -206,72 +221,41 @@ with tab1:
                 "MHz": st.column_config.TextColumn("MHz", width="small"),
                 "Nazwa": st.column_config.TextColumn("Nazwa", width="medium"),
                 "Mod": st.column_config.TextColumn("Mod", width="small"),
+                "Opis": st.column_config.TextColumn("Opis", width="large"),
             },
             use_container_width=True, hide_index=True, height=450
         )
 
-# --- ZAKŁADKA 2 (YOUTUBE - TO ZADZIAŁA NA 100%) ---
+# --- ZAKŁADKA 2: KRYZYSOWE ---
 with tab2:
-    st.header("🎧 Biblioteka Sygnałów Radiowych")
-    st.markdown("Nie wiesz czego szukasz? Odsłuchaj nagrania (YouTube).")
-    
-    col_snd1, col_snd2 = st.columns(2)
-    
-    with col_snd1:
-        st.subheader("🛰️ Satelity Pogodowe")
-        st.markdown("**NOAA APT (137 MHz)** - Charakterystyczne 'tykanie' (2Hz).")
-        # Link do nagrania NOAA na YouTube
-        st.video("https://www.youtube.com/watch?v=sO7C12_yQPY")
-        
-        st.divider()
-        
-        st.subheader("📟 Packet Radio / APRS")
-        st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty'.")
-        # Link do nagrania APRS
-        st.video("https://www.youtube.com/watch?v=h6qCg82XyME")
-
-    with col_snd2:
-        st.subheader("🖼️ SSTV (ISS)")
-        st.markdown("**SSTV** - Dźwięk przesyłający obrazek z kosmosu.")
-        # Link do nagrania SSTV
-        st.video("https://www.youtube.com/watch?v=9jR4O_dZ-hY")
-
-        st.divider()
-
-        st.subheader("👮 Służby (Analogowe)")
-        st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa.")
-        # Link do nagrania komunikacji radiowej (przykład)
-        st.video("https://www.youtube.com/watch?v=eYLL7f11tM0")
-
-# --- ZAKŁADKA 3 ---
-with tab3:
-    st.header("🆘 Procedury Awaryjne")
+    st.header("🆘 Procedury Awaryjne (Polska)")
     
     c1, c2, c3 = st.columns(3)
     with c1:
         st.error("### 1. Reguła 3-3-3")
         st.markdown("""
-        System nasłuchu w sytuacji braku GSM:
-        * **Kiedy?** Co 3 godziny (12:00, 15:00...)
-        * **Ile?** 3 minuty nasłuchu
-        * **Gdzie?** PMR Kanał 3 / CB Kanał 3
+        System nasłuchu w sytuacji kryzysowej (brak GSM):
+        * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
+        * **Ile?** 3 minuty nasłuchu, potem wywołanie.
+        * **Gdzie?** * PMR Kanał 3 (446.031 MHz)
+            * CB Kanał 3 (26.980 MHz AM)
         """)
     with c2:
-        st.warning("### 2. Zasilanie")
+        st.warning("### 2. Ograniczenia Sprzętu")
         st.markdown("""
-        Radio bez prądu to cegła.
-        * Miej zapas baterii AA/AAA.
-        * Baofeng: miej kabel USB.
-        * Nie nadawaj bez potrzeby.
+        * **Baofeng UV-5R:** Nie odbiera pasma lotniczego (AM). Nie nadaje się do nasłuchu CB (inne pasmo).
+        * **Zasięg PMR:** W mieście realnie 500m - 1km. W górach do 5-10km.
+        * **Antena:** Fabryczna "gumowa" antena to najsłabsze ogniwo. Warto mieć dłuższą (np. Nagoya 771).
         """)
     with c3:
-        st.info("### 3. Komunikacja")
+        st.info("### 3. Komunikacja Kryzysowa")
         st.markdown("""
-        Mów krótko i zwięźle.
-        * **KTO** woła
-        * **KOGO** wołasz
-        * **CO** chcesz przekazać
+        **RAPORT S.A.L.T:**
+        * **S (Size):** Ile osób/wielkość zdarzenia?
+        * **A (Activity):** Co się dzieje?
+        * **L (Location):** Gdzie jesteście?
+        * **T (Time):** Kiedy to się stało?
         """)
 
 st.markdown("---")
-st.caption("Radio Command Center v2.4 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Radio Command Center v3.1 | Dane satelitarne: CelesTrak | Czas: UTC")
