@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import requests
 import os
+import time
 from datetime import datetime, timedelta, timezone
 
 # Biblioteki do obliczeń satelitarnych
@@ -21,28 +22,23 @@ st.set_page_config(
 )
 
 # ===========================
-# 0. LICZNIK ODWIEDZIN
+# 0. FUNKCJE POMOCNICZE (Licznik, Czas)
 # ===========================
 def update_counter():
     counter_file = "counter.txt"
     if not os.path.exists(counter_file):
-        with open(counter_file, "w") as f:
-            f.write("0")
-    
+        with open(counter_file, "w") as f: f.write("0")
     with open(counter_file, "r") as f:
-        try:
-            count = int(f.read())
-        except ValueError:
-            count = 0
-            
+        try: count = int(f.read())
+        except: count = 0
     count += 1
-    
-    with open(counter_file, "w") as f:
-        f.write(str(count))
-        
+    with open(counter_file, "w") as f: f.write(str(count))
     return count
 
 visit_count = update_counter()
+
+def get_utc_time():
+    return datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
 
 # ===========================
 # 1. LOGIKA SATELITARNA (Backend)
@@ -70,7 +66,6 @@ def fetch_iss_tle():
         return FALLBACK_TLE
 
 def get_satellite_position(line1, line2):
-    """Oblicza pozycję i trajektorię ISS."""
     try:
         sat = Satrec.twoline2rv(line1, line2)
         now = datetime.now(timezone.utc)
@@ -96,10 +91,8 @@ def get_satellite_position(line1, line2):
             loc_s = EarthLocation(itrs_s.x, itrs_s.y, itrs_s.z)
             lon_s = loc_s.lon.deg
             if prev_lon is not None and abs(lon_s - prev_lon) > 180:
-                traj_lats.append(None)
-                traj_lons.append(None)
-            traj_lats.append(loc_s.lat.deg)
-            traj_lons.append(lon_s)
+                traj_lats.append(None); traj_lons.append(None)
+            traj_lats.append(loc_s.lat.deg); traj_lons.append(lon_s)
             prev_lon = lon_s
 
         return cur_lat, cur_lon, traj_lats, traj_lons
@@ -113,13 +106,13 @@ def get_satellite_position(line1, line2):
 data_freq = [
     # --- SATELITY ---
     {"MHz": "145.800", "Pasmo": "2m", "Mod": "NFM", "Kategoria": "Satelity", "Nazwa": "ISS (Głos)", "Opis": "Międzynarodowa Stacja Kosmiczna"},
+    {"MHz": "145.825", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Satelity", "Nazwa": "ISS (APRS)", "Opis": "Packet Radio / APRS"},
     {"MHz": "137.100", "Pasmo": "2m", "Mod": "WFM", "Kategoria": "Satelity", "Nazwa": "NOAA 19", "Opis": "Mapy pogodowe (APT)"},
     
     # --- SŁUŻBY ---
     {"MHz": "148.6625", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Krajowy)", "Opis": "Kanał Ratowniczo-Gaśniczy (B028)"},
-    {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Współdziałanie)", "Opis": "Kanał dowodzenia/współdziałania"},
-    {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "Radio-Stop / Szlakowy (Znika na rzecz GSM-R!)"},
-    {"MHz": "150.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R2)", "Opis": "Radio-Stop / Szlakowy"},
+    {"MHz": "149.150", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Służby", "Nazwa": "PSP (Współdziałanie)", "Opis": "Kanał dowodzenia"},
+    {"MHz": "150.100", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Kolej", "Nazwa": "PKP (R1)", "Opis": "Radio-Stop / Szlakowy"},
     {"MHz": "169.000", "Pasmo": "VHF", "Mod": "NFM", "Kategoria": "Medyczne", "Nazwa": "Współdz. Med.", "Opis": "Lotnicze Pogotowie / Karetki"},
     {"MHz": "129.500", "Pasmo": "Air", "Mod": "AM", "Kategoria": "Lotnictwo", "Nazwa": "LPR (Ope.)", "Opis": "Przykładowy kanał operacyjny LPR"},
 
@@ -134,19 +127,34 @@ data_freq = [
 # 3. INTERFEJS APLIKACJI
 # ===========================
 
+# --- PASEK BOCZNY (Sidebar) ---
+with st.sidebar:
+    st.header("🎛️ Panel Kontrolny")
+    
+    # Zegar UTC (Dynamiczny hack - odświeża się przy interakcji)
+    st.markdown(f"""
+    <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
+        <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
+        <div style="font-size: 1.8em; font-weight: bold; color: #00ff41; font-family: monospace;">{get_utc_time()}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("---")
+    st.markdown("**Statystyki:**")
+    st.write(f"👁️ Odwiedzin: **{visit_count}**")
+    
+    st.info("""
+    **Szybkie Q-Kody:**
+    * **QTH:** Lokalizacja
+    * **QSL:** Potwierdzam
+    * **QRZ:** Kto mnie woła?
+    * **QRT:** Kończę nadawanie
+    """)
+
 st.title("📡 Radio Command Center")
 
-# --- LICZNIK ---
-st.markdown(
-    f"""
-    <div style="text-align: right; padding: 5px; font-size: 0.8em; color: gray;">
-    Odwiedzin: <b>{visit_count}</b>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-tab1, tab2 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa"])
+# Zakładki
+tab1, tab2, tab3 = st.tabs(["📡 Tracker & Skaner", "🎧 Jak to brzmi?", "🆘 Łączność Kryzysowa"])
 
 # ===========================
 # ZAKŁADKA 1: Tracker ISS
@@ -165,31 +173,35 @@ with tab1:
                 # Trajektoria
                 fig.add_trace(go.Scattergeo(
                     lat=path_lat, lon=path_lon, mode="lines",
-                    line=dict(color="blue", width=2, dash="dot"), name="Orbita"
+                    line=dict(color="cyan", width=2, dash="dot"), name="Orbita"
                 ))
 
-                # POZYCJA ISS - ZMIANA NA EMOJI 🛰️
+                # Ikona ISS
                 fig.add_trace(go.Scattergeo(
                     lat=[lat], lon=[lon], 
-                    mode="text",  # Tryb tekstowy (emoji)
-                    text=["🛰️"],  # Ikona satelity
-                    textfont=dict(size=25), # Rozmiar ikony
+                    mode="text", text=["🛰️"], textfont=dict(size=30),
                     name="ISS Teraz",
                     hoverinfo="text",
                     hovertext=f"ISS (ZARYA)<br>Lat: {lat:.2f}<br>Lon: {lon:.2f}"
                 ))
 
+                # NOWOŚĆ: Efekt dnia i nocy na mapie
                 fig.update_layout(
-                    margin={"r":0,"t":0,"l":0,"b":0}, height=400,
+                    margin={"r":0,"t":0,"l":0,"b":0}, height=450,
                     geo=dict(
-                        projection_type="natural earth", showland=True,
-                        landcolor="rgb(230, 230, 230)", showocean=True,
-                        oceancolor="rgb(200, 225, 255)", showcountries=True
-                    ), showlegend=False
+                        projection_type="natural earth", 
+                        showland=True, landcolor="#2A2A2A", # Ciemniejszy motyw lądu
+                        showocean=True, oceancolor="#111111", # Ciemny ocean
+                        showcountries=True, countrycolor="#555555",
+                        showdaylight=True, # Cień Ziemi!
+                        resolution=110
+                    ),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button("🔄 Odśwież pozycję"): st.rerun()
-                st.caption(f"Lat: {lat:.2f}, Lon: {lon:.2f}")
             else:
                 st.error("Błąd obliczeń orbitalnych.")
         else:
@@ -199,16 +211,12 @@ with tab1:
         st.subheader("Baza Częstotliwości")
         df = pd.DataFrame(data_freq)
         
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            search = st.text_input("🔍 Szukaj", "")
-        with col_f2:
-            cat_filter = st.multiselect("Kategoria", df["Kategoria"].unique())
+        c_search, c_filter = st.columns([2,1])
+        with c_search: search = st.text_input("🔍 Szukaj częstotliwości", "")
+        with c_filter: cat_filter = st.multiselect("Filtr", df["Kategoria"].unique())
 
-        if search:
-            df = df[df.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
-        if cat_filter:
-            df = df[df["Kategoria"].isin(cat_filter)]
+        if search: df = df[df.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
+        if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
 
         st.dataframe(
             df[["MHz", "Nazwa", "Mod", "Opis"]],
@@ -217,48 +225,74 @@ with tab1:
                 "Nazwa": st.column_config.TextColumn("Nazwa", width="medium"),
                 "Mod": st.column_config.TextColumn("Mod", width="small"),
             },
-            use_container_width=True,
-            hide_index=True,
-            height=400
+            use_container_width=True, hide_index=True, height=450
         )
 
 # ===========================
-# ZAKŁADKA 2: Łączność Kryzysowa
+# ZAKŁADKA 2: Biblioteka Dźwięków (NOWOŚĆ)
 # ===========================
 with tab2:
-    st.header("🆘 Łączność w Sytuacjach Kryzysowych")
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.info("### 📻 Reguła 3-3-3")
-        st.markdown("""
-        * **Kiedy:** Co **3 godziny** (3:00, 6:00, 9:00...)
-        * **Jak długo:** Przez **3 minuty**.
-        * **PMR:** Kanał **3** (446.031 MHz).
-        * **CB:** Kanał **3**.
-        """)
-
-    with c2:
-        st.warning("### 🚓 Służby i Prawo")
-        st.markdown("""
-        * **Nasłuch:** Legalny (pasma analogowe).
-        * **Nadawanie:** Tylko PMR i CB bez licencji.
-        * **PKP/PSP:** Zakłócanie surowo karane!
-        """)
-
-    st.divider()
-    st.subheader("📋 Kluczowe kanały (Bez licencji)")
+    st.header("🎧 Biblioteka Sygnałów Radiowych")
+    st.markdown("Nie wiesz czego szukasz? Posłuchaj próbek popularnych sygnałów, aby rozpoznać je na wodospadzie (Waterfall) SDR.")
     
-    k1, k2, k3 = st.columns(3)
-    with k1:
-        st.success("**PMR 446**")
-        st.markdown("* **CH 3:** Preppersi\n* **CH 1:** Ogólny")
-    with k2:
-        st.success("**CB Radio**")
-        st.markdown("* **CH 19:** Drogowy\n* **CH 9:** Ratunkowy")
-    with k3:
-        st.error("**Alarmy**")
-        st.markdown("* **S.O.S:** ... --- ...\n* **MAYDAY:** Życie")
+    col_snd1, col_snd2 = st.columns(2)
+    
+    with col_snd1:
+        st.subheader("🛰️ Satelity Pogodowe")
+        st.markdown("**NOAA APT (137 MHz)** - Charakterystyczne 'tykanie' (2Hz).")
+        # Link do pliku public domain z Wikimedia Commons
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/2/2c/Noaa_apt_signal.ogg", format="audio/ogg")
+        
+        st.divider()
+        
+        st.subheader("📟 Packet Radio / APRS")
+        st.markdown("**APRS (144.800 MHz)** - Krótkie cyfrowe 'zgrzyty' przesyłające pozycję GPS.")
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/7/7b/AX.25_1200_baud_packet_radio.ogg", format="audio/ogg")
+
+    with col_snd2:
+        st.subheader("🖼️ SSTV (ISS)")
+        st.markdown("**SSTV (Slow Scan TV)** - Dźwięk przesyłający obrazek z kosmosu.")
+        st.audio("https://upload.wikimedia.org/wikipedia/commons/d/d2/SSTV_transmission_Scottie_1.ogg", format="audio/ogg")
+
+        st.divider()
+
+        st.subheader("👮 Służby (Analogowe)")
+        st.markdown("**NFM (Voice)** - Typowa, wąska modulacja głosowa używana przez Policję/PSP (tam gdzie analog).")
+        # Symulacja szumu squelch i głosu (placeholder)
+        st.caption("Brzmi jak zwykła rozmowa telefoniczna, często z szumem w tle.")
+
+# ===========================
+# ZAKŁADKA 3: Łączność Kryzysowa
+# ===========================
+with tab3:
+    st.header("🆘 Procedury Awaryjne")
+    
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.error("### 1. Reguła 3-3-3")
+        st.markdown("""
+        System nasłuchu w sytuacji braku GSM:
+        * **Kiedy?** Co 3 godziny (12:00, 15:00...)
+        * **Ile?** 3 minuty nasłuchu
+        * **Gdzie?** PMR Kanał 3 / CB Kanał 3
+        """)
+    with c2:
+        st.warning("### 2. Zasilanie")
+        st.markdown("""
+        Radio bez prądu to cegła.
+        * Miej zapas baterii AA/AAA.
+        * Baofeng: miej kabel USB do ładowania z powerbanka.
+        * Nie nadawaj bez potrzeby (nadawanie zużywa 10x więcej prądu).
+        """)
+    with c3:
+        st.info("### 3. Komunikacja")
+        st.markdown("""
+        Mów krótko i zwięźle.
+        * **KTO** woła (Twój znak/imię)
+        * **KOGO** wołasz
+        * **CO** chcesz przekazać
+        * *"Tu Marek, wywołuję Adama, odbiór."*
+        """)
 
 st.markdown("---")
-st.caption("Aplikacja edukacyjna. Autor nie ponosi odpowiedzialności za niewłaściwe użycie sprzętu radiowego.")
+st.caption("Radio Command Center v2.0 | Dane satelitarne: CelesTrak | Czas: UTC")
