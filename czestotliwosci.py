@@ -102,8 +102,24 @@ def generate_cb_list():
     return cb_list
 
 # ===========================
-# 2. BAZA DANYCH GLOBALNYCH
+# 2. BAZA DANYCH
 # ===========================
+
+# --- DANE PRZEMIENNIKÓW (SELEKCJA GŁÓWNYCH) ---
+repeater_list = [
+    {"Znak": "SR5WA", "Freq": "439.350", "CTCSS": "127.3", "Lat": 52.23, "Lon": 21.01, "Loc": "Warszawa (Pałac Kultury)", "Shift": "-7.6"},
+    {"Znak": "SR5W", "Freq": "145.600", "CTCSS": "127.3", "Lat": 52.21, "Lon": 20.98, "Loc": "Warszawa", "Shift": "-0.6"},
+    {"Znak": "SR6J", "Freq": "145.675", "CTCSS": "94.8", "Lat": 50.78, "Lon": 15.56, "Loc": "Śnieżne Kotły (Ogromny Zasięg!)", "Shift": "-0.6"},
+    {"Znak": "SR9P", "Freq": "438.900", "CTCSS": "103.5", "Lat": 50.06, "Lon": 19.94, "Loc": "Kraków", "Shift": "-7.6"},
+    {"Znak": "SR9C", "Freq": "145.775", "CTCSS": "103.5", "Lat": 49.65, "Lon": 19.88, "Loc": "Chorągwica (Kraków)", "Shift": "-0.6"},
+    {"Znak": "SR2Z", "Freq": "145.725", "CTCSS": "94.8", "Lat": 54.37, "Lon": 18.60, "Loc": "Gdańsk (Olivia Star)", "Shift": "-0.6"},
+    {"Znak": "SR2C", "Freq": "438.800", "CTCSS": "94.8", "Lat": 54.52, "Lon": 18.53, "Loc": "Gdynia (Chwaszczyno)", "Shift": "-7.6"},
+    {"Znak": "SR3PO", "Freq": "438.850", "CTCSS": "110.9", "Lat": 52.40, "Lon": 16.92, "Loc": "Poznań", "Shift": "-7.6"},
+    {"Znak": "SR8L", "Freq": "145.625", "CTCSS": "107.2", "Lat": 51.24, "Lon": 22.57, "Loc": "Lublin", "Shift": "-0.6"},
+    {"Znak": "SR4J", "Freq": "439.100", "CTCSS": "88.5", "Lat": 53.77, "Lon": 20.48, "Loc": "Olsztyn (Pieczewo)", "Shift": "-7.6"},
+    {"Znak": "SR7V", "Freq": "145.6875", "CTCSS": "88.5", "Lat": 50.80, "Lon": 19.11, "Loc": "Częstochowa", "Shift": "-0.6"},
+    {"Znak": "SR1Z", "Freq": "145.6375", "CTCSS": "118.8", "Lat": 53.42, "Lon": 14.55, "Loc": "Szczecin", "Shift": "-0.6"},
+]
 
 global_stations = [
     # --- FALE DŁUGIE (LW) ---
@@ -230,14 +246,15 @@ with c_visits:
     """, unsafe_allow_html=True)
 
 
-# --- ZAKŁADKI (TERAZ 6 ZAKŁADEK - DODANO POGODĘ) ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+# --- ZAKŁADKI (7 ZAKŁADEK - DODANO PRZEMIENNIKI) ---
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📡 Tracker & Skaner", 
-    "☀️ Pogoda Kosmiczna", # <--- NOWA ZAKŁADKA
+    "☀️ Pogoda Kosmiczna", 
     "🆘 Łączność Kryzysowa", 
     "🌍 Czas na Świecie", 
     "📻 Stacje Globalne",
-    "📚 Słownik & Ciekawostki"
+    "📚 Słownik & Ciekawostki",
+    "🗺️ Przemienniki" # <--- NOWA ZAKŁADKA
 ])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
@@ -302,44 +319,19 @@ with tab1:
             use_container_width=True, hide_index=True, height=450
         )
 
-# --- ZAKŁADKA 2: POGODA KOSMICZNA (NOWA) ---
+# --- ZAKŁADKA 2: POGODA KOSMICZNA ---
 with tab2:
     st.header("☀️ Pogoda Kosmiczna & Propagacja")
-    st.markdown("Aktualne warunki do łączności dalekiego zasięgu (DX) na falach krótkich (HF) i VHF.")
-    
     col_solar, col_info = st.columns([1, 1])
-    
     with col_solar:
-        # Widget N0NBH - standard branżowy, dane na żywo
         st.image("https://www.hamqsl.com/solar101vhf.php", caption="Dane na żywo: N0NBH", use_container_width=False)
         st.markdown("---")
-        # Mapa Greyline (Dzień/Noc)
         st.image("https://www.hamqsl.com/solarmap.php", caption="Mapa Dzień/Noc (Greyline)", use_container_width=True)
-
     with col_info:
-        st.subheader("📉 Jak czytać dane?")
-        
         st.success("### SFI (Solar Flux Index)")
-        st.markdown("""
-        "Paliwo" dla fal radiowych. Im wyższa liczba, tym lepsze odbicia od jonosfery.
-        * **< 70:** Słabe warunki (Drut kolczasty zamiast anteny).
-        * **70 - 100:** Średnie warunki.
-        * **> 100:** Dobre warunki (Europa/USA słyszalne głośno).
-        * **> 150:** Rewelacja! Łączności z Antypodami.
-        """)
-        
+        st.markdown('* **> 100:** Dobre warunki DX.\n* **< 70:** Słabe warunki.')
         st.error("### K-Index (Burze Magnetyczne)")
-        st.markdown("""
-        Poziom zakłóceń ziemskiego pola magnetycznego. Tu chcemy jak najmniej!
-        * **0 - 2:** Cisza, czysty odbiór (Super!).
-        * **3 - 4:** Lekkie zakłócenia.
-        * **> 5:** Burza geomagnetyczna. Szumy, zaniki sygnału, możliwe zorze polarne.
-        """)
-        
-        st.info("### Wskazówka")
-        st.markdown("""
-        **Szara Linia (Greyline):** Popatrz na mapę. Pasmo zmierzchu/świtu (przejście dzień-noc) to magiczny czas. Wzdłuż tej linii sygnał radiowy może okrążyć Ziemię! Wtedy najlepiej słuchać dalekich stacji.
-        """)
+        st.markdown('* **0-2:** Czysty sygnał.\n* **> 4:** Burza geomagnetyczna (szumy).')
 
 # --- ZAKŁADKA 3: KRYZYSOWE ---
 with tab3:
@@ -347,33 +339,17 @@ with tab3:
     c1, c2, c3 = st.columns(3)
     with c1:
         st.error("### 1. Reguła 3-3-3")
-        st.markdown("""
-        System nasłuchu w sytuacji kryzysowej (brak GSM):
-        * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
-        * **Ile?** 3 minuty nasłuchu.
-        * **Gdzie?** PMR Kanał 3 / CB Kanał 3
-        """)
+        st.markdown("* **Kiedy?** Co 3h\n* **Gdzie?** PMR 3 / CB 3")
     with c2:
         st.warning("### 2. Sprzęt")
-        st.markdown("""
-        * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
-        * **Zasięg:** Miasto: 1km. Otwarty teren: 5km. Góry/Kosmos: >100km.
-        * **Antena:** Długa antena (np. Nagoya) poprawia odbiór o 50%.
-        """)
+        st.markdown("* **Baofeng:** Dobry na PMR/Służby. Nie działa na CB (AM).")
     with c3:
-        st.info("### 3. Komunikacja")
-        st.markdown("""
-        **RAPORT S.A.L.T:**
-        * **S (Size):** Ile osób?
-        * **A (Activity):** Co się dzieje?
-        * **L (Location):** Gdzie?
-        * **T (Time):** Kiedy?
-        """)
+        st.info("### 3. Raport SALT")
+        st.markdown("* **S**ize, **A**ctivity, **L**ocation, **T**ime.")
 
 # --- ZAKŁADKA 4: STREFY CZASOWE ---
 with tab4:
     st.header("🌍 Czas na Świecie")
-    
     zones = [
         ("UTC (Zulu)", "UTC"),
         ("Polska (Warszawa)", "Europe/Warsaw"),
@@ -382,81 +358,74 @@ with tab4:
         ("Japonia (Tokio)", "Asia/Tokyo"),
         ("Australia (Sydney)", "Australia/Sydney")
     ]
-
     cols = st.columns(3)
     for i, (name, zone) in enumerate(zones):
         with cols[i % 3]:
             time_str = get_time_in_zone(zone)
-            date_str = get_date_in_zone(zone)
-            st.markdown(f"""
-            <div style="
-                background-color: #1E1E1E; 
-                padding: 15px; 
-                border-radius: 10px; 
-                border: 1px solid #444; 
-                text-align: center;
-                margin-bottom: 20px;">
-                <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">{name}</div>
-                <div style="color: #FFF; font-size: 2.2em; font-family: monospace; font-weight: bold;">{time_str}</div>
-                <div style="color: #666; font-size: 0.8em;">{date_str}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"<div style='background:#1E1E1E;padding:10px;border-radius:10px;text-align:center;margin-bottom:10px;'><div style='color:#888;'>{name}</div><div style='color:#FFF;font-size:2em;font-weight:bold;'>{time_str}</div></div>", unsafe_allow_html=True)
 
 # --- ZAKŁADKA 5: STACJE GLOBALNE ---
 with tab5:
-    st.header("📻 Globalne Stacje Radiowe (LW/MW/SW)")
-    st.markdown("Lista stacji o zasięgu globalnym lub kontynentalnym.")
-    
-    df_global = pd.DataFrame(global_stations)
-    
-    st.dataframe(
-        df_global,
-        column_config={
-            "MHz": st.column_config.TextColumn("Częstotliwość (MHz)", width="medium"),
-            "Pasmo": st.column_config.TextColumn("Pasmo", width="small"),
-            "Mod": st.column_config.TextColumn("Mod", width="small"),
-            "Nazwa": st.column_config.TextColumn("Stacja", width="medium"),
-            "Opis": st.column_config.TextColumn("Opis i Zasięg", width="large"),
-        },
-        use_container_width=True,
-        hide_index=True
-    )
+    st.header("📻 Globalne Stacje Radiowe")
+    st.dataframe(pd.DataFrame(global_stations), use_container_width=True, hide_index=True)
 
-# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI ---
+# --- ZAKŁADKA 6: SŁOWNIK ---
 with tab6:
     st.header("📚 Edukacja Radiowa")
-    
-    col_dict, col_facts = st.columns(2)
-    
-    with col_dict:
-        st.subheader("📖 Słownik Pojęć")
-        st.markdown("""
-        * **AM (Amplituda):** Modulacja używana w lotnictwie i na CB. Odporna na efekt "zjadania" słabszego sygnału.
-        * **FM / NFM (Częstotliwość):** Modulacja "czysta", ale działająca zero-jedynkowo (albo słyszysz, albo nie).
-        * **SSB (LSB/USB):** Modulacja jednowstęgowa. Pozwala na łączności międzykontynentalne na falach krótkich.
-        * **Squelch (SQ):** Bramka szumów. Wycisza radio, gdy sygnał jest zbyt słaby.
-        * **CTCSS / DCS:** Kody (tony) dodawane do głosu. Działają jak klucz do drzwi - otwierają przemiennik.
-        * **Shift (Offset):** Różnica między częstotliwością, na której słuchasz, a tą, na której nadajesz (niezbędne przy przemiennikach).
-        * **73:** Międzynarodowy kod oznaczający "Pozdrawiam".
-        * **QTH:** Kod oznaczający "Moja lokalizacja".
-        * **DX:** Łączność dalekiego zasięgu (poza granice kraju/kontynentu).
-        """)
+    c1, c2 = st.columns(2)
+    with c1: st.markdown("* **Squelch:** Blokada szumów.\n* **CTCSS:** Ton otwierający przemiennik.")
+    with c2: st.markdown("* **Doppler:** Zmiana częstotliwości satelity (+/- 3kHz).\n* **QTH:** Lokalizacja.")
 
-    with col_facts:
-        st.subheader("💡 Ciekawostki")
+# --- ZAKŁADKA 7: PRZEMIENNIKI (NOWA!) ---
+with tab7:
+    st.header("🗺️ Mapa Przemienników (Polska)")
+    st.markdown("Wybrane, najpopularniejsze przemienniki analogowe w Polsce. Zwiększają zasięg ręcznego radia z kilku do kilkudziesięciu kilometrów.")
+    
+    col_map_rep, col_info_rep = st.columns([3, 1])
+    
+    df_rep = pd.DataFrame(repeater_list)
+    
+    with col_map_rep:
+        # Mapa punktowa OpenStreetMap
+        fig_rep = go.Figure(go.Scattermapbox(
+            lat=df_rep['Lat'],
+            lon=df_rep['Lon'],
+            mode='markers',
+            marker=go.scattermapbox.Marker(size=14, color='orange'),
+            text=df_rep['Znak'],
+            hoverinfo='text',
+            hovertext=df_rep.apply(lambda row: f"<b>{row['Znak']}</b><br>{row['Loc']}<br>Freq: {row['Freq']} MHz<br>CTCSS: {row['CTCSS']}<br>Shift: {row['Shift']}", axis=1)
+        ))
+        
+        fig_rep.update_layout(
+            mapbox_style="open-street-map",
+            hovermode='closest',
+            mapbox=dict(
+                center=go.layout.mapbox.Center(lat=52.00, lon=19.00),
+                zoom=5
+            ),
+            margin={"r":0,"t":0,"l":0,"b":0},
+            height=500
+        )
+        st.plotly_chart(fig_rep, use_container_width=True)
+        
+    with col_info_rep:
+        st.info("ℹ️ **Jak używać?**")
         st.markdown("""
-        * **Dlaczego polskie CB to 'Zera'?**
-          Większość świata używa częstotliwości kończących się na 5 (np. 27.185 MHz). W Polsce historycznie przyjęto końcówki 0 (27.180 MHz). Aby rozmawiać z polskimi kierowcami, musisz mieć radio przestawione w standard "PL".
+        Aby wejść na przemiennik:
+        1. Ustaw częstotliwość odbioru (**Freq**).
+        2. Ustaw przesunięcie nadawania (**Shift**).
+        3. Włącz ton CTCSS w nadawaniu (T-CTC).
         
-        * **PMR - Zasięg to mit?**
-          Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry na inną górę. W gęstej zabudowie miejskiej realny zasięg to często 300-500 metrów.
-        
-        * **Dlaczego samoloty używają AM?**
-          W modulacji FM, gdy dwie osoby nadają naraz, radio odtwarza tylko silniejszy sygnał (słabszy znika). W lotnictwie to niebezpieczne - kontroler musi wiedzieć, że ktoś próbuje się wciąć. W AM słychać obu naraz jako pisk/interferencję.
-          
-        * **Efekt Dopplera:**
-          Gdy ISS nadlatuje w Twoją stronę z prędkością 28 000 km/h, fale radiowe są "ściskane" i słyszysz je na wyższej częstotliwości (+3 kHz). Gdy odlatuje - na niższej.
+        *Najedź myszką na punkt, aby zobaczyć szczegóły.*
         """)
+        
+        # Mini tabela
+        st.dataframe(
+            df_rep[["Znak", "Freq", "Loc"]],
+            hide_index=True,
+            use_container_width=True
+        )
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v6.1 | Dane: CelesTrak | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v7.0 | Dane: CelesTrak, N0NBH | Czas: UTC")
