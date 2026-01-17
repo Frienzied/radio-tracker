@@ -16,7 +16,11 @@ import astropy.units as u
 # ===========================
 # Konfiguracja Strony
 # ===========================
-st.set_page_config(page_title="Centrum Dowodzenia Radiowego", page_icon="📡", layout="wide")
+st.set_page_config(
+    page_title="Centrum Dowodzenia Radiowego",
+    page_icon="📡",
+    layout="wide"
+)
 
 # ===========================
 # 0. FUNKCJE POMOCNICZE I BAZA DANYCH
@@ -24,72 +28,140 @@ st.set_page_config(page_title="Centrum Dowodzenia Radiowego", page_icon="📡", 
 LOGBOOK_FILE = "radio_logbook.csv"
 
 def load_logbook():
+    """Wczytuje logbook z pliku CSV lub tworzy nowy, jeśli plik nie istnieje."""
     if os.path.exists(LOGBOOK_FILE):
         return pd.read_csv(LOGBOOK_FILE)
-    return pd.DataFrame(columns=["Data", "Godzina (UTC)", "Freq (MHz)", "Stacja", "Modulacja", "Raport"])
+    else:
+        return pd.DataFrame(columns=["Data", "Godzina (UTC)", "Freq (MHz)", "Stacja", "Modulacja", "Raport"])
 
 def save_logbook(df):
+    """Zapisuje logbook do pliku CSV."""
     df.to_csv(LOGBOOK_FILE, index=False)
 
 def update_counter():
+    """Prosty licznik odwiedzin oparty na pliku tekstowym."""
     counter_file = "counter.txt"
     if not os.path.exists(counter_file):
-        with open(counter_file, "w") as f: f.write("0")
+        with open(counter_file, "w") as f:
+            f.write("0")
+    
     with open(counter_file, "r") as f:
-        try: count = int(f.read())
-        except: count = 0
+        try:
+            count = int(f.read())
+        except:
+            count = 0
+            
     count += 1
-    with open(counter_file, "w") as f: f.write(str(count))
+    
+    with open(counter_file, "w") as f:
+        f.write(str(count))
+        
     return count
 
 visit_count = update_counter()
 
-def get_utc_time(): return datetime.now(timezone.utc).strftime("%H:%M UTC")
+def get_utc_time():
+    """Zwraca aktualny czas UTC w formacie HH:MM."""
+    return datetime.now(timezone.utc).strftime("%H:%M UTC")
 
 def get_time_in_zone(zone_name):
-    try: return datetime.now(pytz.timezone(zone_name)).strftime("%H:%M")
-    except: return "--:--"
+    """Zwraca czas w podanej strefie czasowej."""
+    try:
+        tz = pytz.timezone(zone_name)
+        return datetime.now(tz).strftime("%H:%M")
+    except:
+        return "--:--"
 
 def latlon_to_maidenhead(lat, lon):
+    """Konwertuje współrzędne GPS na lokator QTH (Maidenhead)."""
     try:
         A = ord('A')
-        lon += 180; lat += 90
-        f_lon = int(lon/20); f_lat = int(lat/10)
-        lon -= f_lon*20; lat -= f_lat*10
-        s_lon = int(lon/2); s_lat = int(lat)
-        lon -= s_lon*2; lat -= s_lat
-        ss_lon = int(lon*12); ss_lat = int(lat*24)
+        lon += 180
+        lat += 90
+        
+        f_lon = int(lon / 20)
+        f_lat = int(lat / 10)
+        lon -= f_lon * 20
+        lat -= f_lat * 10
+        
+        s_lon = int(lon / 2)
+        s_lat = int(lat)
+        lon -= s_lon * 2
+        lat -= s_lat
+        
+        ss_lon = int(lon * 12)
+        ss_lat = int(lat * 24)
+        
         return f"{chr(A+f_lon)}{chr(A+f_lat)}{s_lon}{s_lat}{chr(A+ss_lon)}{chr(A+ss_lat)}"
-    except: return "Error"
+    except:
+        return "Error"
 
 # ===========================
-# 1. LISTY I DANE (PEŁNE WERSJE)
+# 1. GENERATORY CZĘSTOTLIWOŚCI
 # ===========================
+
 def generate_pmr_list():
-    pmr = []
-    base = 446.00625
+    """Generuje listę kanałów PMR."""
+    pmr_list = []
+    base_freq = 446.00625
+    step = 0.0125
+    
     for i in range(16):
-        ch = i+1
+        channel = i + 1
+        freq = base_freq + (i * step)
         desc = "Kanał ogólny"
-        if ch==1: desc = "Najpopularniejszy kanał (dzieci, nianie, budowy)"
-        elif ch==3: desc = "Kanał PREPPERSÓW (Reguła 3-3-3). Góry (Alpy/Włochy)"
-        pmr.append({"MHz": f"{base+(i*0.0125):.5f}", "Pasmo": "PMR", "Mod": "NFM", "Kategoria": "PMR", "Nazwa": f"PMR {ch}", "Opis": desc})
-    return pmr
+        
+        if channel == 1:
+            desc = "Najpopularniejszy kanał (dzieci, nianie, budowy)"
+        elif channel == 3:
+            desc = "Kanał PREPPERSÓW (Reguła 3-3-3). Kanał górski (Alpy/Włochy)"
+            
+        pmr_list.append({
+            "MHz": f"{freq:.5f}",
+            "Pasmo": "PMR",
+            "Mod": "NFM",
+            "Kategoria": "PMR",
+            "Nazwa": f"PMR {channel}",
+            "Opis": desc
+        })
+    return pmr_list
 
 def generate_cb_list():
-    freqs = [26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075,
-             27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205,
-             27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305,
-             27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405]
-    cb = []
+    """Generuje listę kanałów CB Radio."""
+    freqs = [
+        26.965, 26.975, 26.985, 27.005, 27.015, 27.025, 27.035, 27.055, 27.065, 27.075,
+        27.085, 27.105, 27.115, 27.125, 27.135, 27.155, 27.165, 27.175, 27.185, 27.205,
+        27.215, 27.225, 27.255, 27.235, 27.245, 27.265, 27.275, 27.285, 27.295, 27.305,
+        27.315, 27.325, 27.335, 27.345, 27.355, 27.365, 27.375, 27.385, 27.395, 27.405
+    ]
+    cb_list = []
+    
     for i, f in enumerate(freqs):
-        ch = i+1
+        channel = i + 1
+        # Odejmujemy 0.005 MHz dla standardu polskiego ("zera")
+        f_pl = f - 0.005
         desc = "Kanał ogólny"
-        if ch==9: desc = "!!! RATUNKOWY !!!"
-        elif ch==19: desc = "!!! DROGOWY !!! (Antymisiek)"
-        elif ch==3: desc = "Kanał Preppersów (System 3-3-3)"
-        cb.append({"MHz": f"{f-0.005:.3f}", "Pasmo": "CB", "Mod": "AM", "Kategoria": "CB Radio", "Nazwa": f"CB {ch}", "Opis": desc})
-    return cb
+        
+        if channel == 9:
+            desc = "!!! RATUNKOWY !!!"
+        elif channel == 19:
+            desc = "!!! DROGOWY !!! (Antymisiek)"
+        elif channel == 3:
+            desc = "Kanał Preppersów (System 3-3-3)"
+            
+        cb_list.append({
+            "MHz": f"{f_pl:.3f}",
+            "Pasmo": "CB",
+            "Mod": "AM",
+            "Kategoria": "CB Radio",
+            "Nazwa": f"CB {channel}",
+            "Opis": desc
+        })
+    return cb_list
+
+# ===========================
+# 2. BAZA DANYCH (Pełna lista)
+# ===========================
 
 repeater_list = [
     {"Znak": "SR5WA", "Freq": "439.350", "CTCSS": "127.3", "Lat": 52.23, "Lon": 21.01, "Loc": "Warszawa (PKiN)", "Shift": "-7.6"},
@@ -138,14 +210,19 @@ special_freqs = [
     {"MHz": "145.500", "Pasmo": "2m", "Mod": "FM", "Kategoria": "Ham", "Nazwa": "VHF Call", "Opis": "Wywoławcza krótkofalarska (rozmowy lokalne)"},
 ]
 
+# Łączymy listy w jedną
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 3. LOGIKA SATELITARNA (NAPRAWIONA - BULLETPROOF)
+# 3. LOGIKA SATELITARNA (Z ZABEZPIECZENIEM TLE)
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
-    """Zwraca TLE. W razie błędu zwraca dane zapasowe."""
+    """
+    Pobiera dane TLE (Two-Line Element) dla ISS.
+    W razie awarii Celestrak zwraca dane zapasowe (Fallback),
+    dzięki czemu aplikacja się nie zawiesza.
+    """
     FALLBACK_TLE = (
         "1 25544U 98067A   24017.54519514  .00016149  00000+0  29290-3 0  9993",
         "2 25544  51.6415 158.8530 0005786 244.1866 179.9192 15.49622591435056"
@@ -157,233 +234,4 @@ def fetch_iss_tle():
         resp = requests.get(url, headers=headers, timeout=5)
         resp.raise_for_status() 
         lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
-        for i, line in enumerate(lines):
-            if "ISS (ZARYA)" in line and i+2 < len(lines):
-                return lines[i+1], lines[i+2]
-        return FALLBACK_TLE # Jeśli pętla nie znajdzie ISS, zwróć zapas
-    except Exception:
-        return FALLBACK_TLE # Jeśli błąd połączenia, zwróć zapas
-
-def get_satellite_position(line1, line2):
-    try:
-        sat = Satrec.twoline2rv(line1, line2)
-        now = datetime.now(timezone.utc)
-        jd, fr = jday(now.year, now.month, now.day, now.hour, now.minute, now.second + now.microsecond * 1e-6)
-        e, r, v = sat.sgp4(jd, fr)
-        if e != 0: return None, None, [], []
-        t_now = Time(now)
-        teme = TEME(x=r[0]*u.km, y=r[1]*u.km, z=r[2]*u.km, obstime=t_now)
-        itrs = teme.transform_to(ITRS(obstime=t_now))
-        loc = EarthLocation(itrs.x, itrs.y, itrs.z)
-        
-        traj_lats, traj_lons = [], []
-        prev_lon = None
-        for delta in range(-50*60, 50*60, 60):
-            ts = now + timedelta(seconds=delta)
-            jd_s, fr_s = jday(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second)
-            _, r_s, _ = sat.sgp4(jd_s, fr_s)
-            itrs_s = TEME(x=r_s[0]*u.km, y=r_s[1]*u.km, z=r_s[2]*u.km, obstime=Time(ts)).transform_to(ITRS(obstime=Time(ts)))
-            loc_s = EarthLocation(itrs_s.x, itrs_s.y, itrs_s.z)
-            ls = loc_s.lon.deg
-            if prev_lon and abs(ls - prev_lon) > 180: traj_lats.append(None); traj_lons.append(None)
-            traj_lats.append(loc_s.lat.deg); traj_lons.append(ls); prev_lon = ls
-            
-        return loc.lat.deg, loc.lon.deg, traj_lats, traj_lons
-    except: return None, None, [], []
-
-# ===========================
-# 4. INTERFEJS APLIKACJI
-# ===========================
-
-c1, c2, c3 = st.columns([3, 1, 1])
-with c1: st.title("📡 Centrum Dowodzenia")
-with c2: st.markdown(f"<div style='text-align:right;color:#00ff41;font-family:monospace;'><b>ZULU:</b> {get_utc_time()}</div>", unsafe_allow_html=True)
-with c3: st.markdown(f"<div style='text-align:right;color:gray;'>Odwiedzin: <b>{visit_count}</b></div>", unsafe_allow_html=True)
-
-# 10 ZAKŁADEK
-tabs = st.tabs(["📡 Tracker", "☀️ Pogoda", "🆘 Kryzysowe", "🌍 Czas", "📻 Globalne", "📚 Edukacja", "🗺️ Przemienniki", "🧮 Kalkulatory", "🌐 WebSDR", "📝 Logbook"])
-
-# 1. TRACKER (ODPORNY NA BŁĘDY)
-with tabs[0]:
-    c_map, c_data = st.columns([3, 2])
-    with c_map:
-        st.subheader("ISS Tracker")
-        tle_data = fetch_iss_tle() # Zawsze zwraca tuple, nigdy None
-        if tle_data:
-            l1, l2 = tle_data
-            lat, lon, t_lat, t_lon = get_satellite_position(l1, l2)
-            if lat is not None:
-                fig = go.Figure()
-                fig.add_trace(go.Scattergeo(lat=t_lat, lon=t_lon, mode="lines", line=dict(color="blue", width=2, dash="dot")))
-                fig.add_trace(go.Scattergeo(lat=[lat], lon=[lon], mode="text", text=["🛰️"], textfont=dict(size=30)))
-                fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=450, geo=dict(projection_type="natural earth", showland=True, landcolor="#333", showocean=True, oceancolor="#111", showcountries=True), showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-                if st.button("🔄 Odśwież"): st.rerun()
-            else:
-                st.error("Błąd obliczeń pozycji.")
-        else:
-            st.error("Błąd danych orbitalnych.")
-
-    with c_data:
-        st.subheader("Częstotliwości (PL)")
-        df = pd.DataFrame(data_freq)
-        c_search, c_filter = st.columns([2, 1])
-        with c_search: 
-            search = st.text_input("🔍 Szukaj...", placeholder="Np. Kanał 19, PMR 3")
-        with c_filter: 
-            cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...")
-
-        if search: df = df[df.apply(lambda r: r.astype(str).str.contains(search, case=False).any(), axis=1)]
-        if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
-        
-        st.dataframe(
-            df[["MHz", "Nazwa", "Mod", "Opis"]],
-            column_config={
-                "MHz": st.column_config.TextColumn("MHz", width="small"),
-                "Nazwa": st.column_config.TextColumn("Nazwa", width="medium"),
-                "Mod": st.column_config.TextColumn("Mod", width="small"),
-                "Opis": st.column_config.TextColumn("Opis", width="large"),
-            },
-            use_container_width=True, hide_index=True, height=450
-        )
-
-# 2. POGODA
-with tabs[1]:
-    st.header("☀️ Pogoda Kosmiczna")
-    c1, c2 = st.columns(2)
-    with c1: 
-        st.image("https://www.hamqsl.com/solar101vhf.php", caption="Dane na żywo: N0NBH")
-        st.markdown("---")
-        st.image("https://www.hamqsl.com/solarmap.php", caption="Mapa Dzień/Noc (Greyline)")
-    with c2:
-        st.success("### SFI (Solar Flux Index)")
-        st.markdown('* **> 100:** Dobre warunki DX.\n* **< 70:** Słabe warunki (szum).')
-        st.error("### K-Index (Burze Magnetyczne)")
-        st.markdown('* **0-2:** Czysty sygnał.\n* **> 4:** Burza geomagnetyczna.')
-
-# 3. KRYZYSOWE (PEŁNE)
-with tabs[2]:
-    st.header("🆘 Procedury Awaryjne (Polska)")
-    c1, c2, c3 = st.columns(3)
-    with c1: 
-        st.error("### 1. Reguła 3-3-3")
-        st.markdown("""
-        System nasłuchu w sytuacji kryzysowej (brak GSM):
-        * **Kiedy?** Co 3 godziny (12:00, 15:00...)
-        * **Ile?** 3 minuty nasłuchu.
-        * **Gdzie?** * **PMR:** Kanał 3 (446.03125 MHz)
-            * **CB:** Kanał 3 (26.980 MHz AM)
-        """)
-    with c2: 
-        st.warning("### 2. Sprzęt")
-        st.markdown("""
-        * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
-        * **Zasięg (PMR):** Miasto 500m-1km, Góry >100km.
-        * **Antena:** Fabryczna "gumowa" to najsłabsze ogniwo.
-        """)
-    with c3: 
-        st.info("### 3. Komunikacja (SALT)")
-        st.markdown("""
-        * **S (Size):** Wielkość zdarzenia.
-        * **A (Activity):** Co się dzieje?
-        * **L (Location):** Gdzie?
-        * **T (Time):** Kiedy?
-        """)
-
-# 4. CZAS
-with tabs[3]:
-    st.header("🌍 Czas Świata")
-    zs = [("UTC", "UTC"), ("PL", "Europe/Warsaw"), ("NY", "America/New_York"), ("LA", "America/Los_Angeles"), ("Tokio", "Asia/Tokyo"), ("Sydney", "Australia/Sydney")]
-    cols = st.columns(3)
-    for i, (n, z) in enumerate(zs):
-        cols[i%3].markdown(f"<div style='background:#222;padding:10px;text-align:center;margin:5px;border-radius:10px;'><div>{n}</div><div style='font-size:1.5em;font-weight:bold;'>{get_time_in_zone(z)}</div></div>", unsafe_allow_html=True)
-
-# 5. GLOBALNE
-with tabs[4]:
-    st.header("📻 Stacje Globalne")
-    st.dataframe(pd.DataFrame(global_stations), column_config={"Nazwa": st.column_config.TextColumn("Stacja", width="medium"), "Opis": st.column_config.TextColumn("Opis", width="large")}, use_container_width=True, hide_index=True)
-
-# 6. EDUKACJA (PEŁNE)
-with tabs[5]:
-    st.header("📚 Edukacja Radiowa")
-    c1, c2 = st.columns(2)
-    with c1: 
-        st.subheader("📖 Słownik")
-        st.markdown("""
-        * **AM:** Modulacja amplitudy (Lotnictwo/CB). Odporna na nakładki.
-        * **FM:** Modulacja częstotliwości (Służby/PMR). Czysty dźwięk.
-        * **SSB:** Wstęgowa. Daleki zasięg na KF.
-        * **Squelch:** Blokada szumów.
-        * **CTCSS:** "Klucz" do przemiennika.
-        * **73:** Pozdrawiam.
-        """)
-    with c2: 
-        st.subheader("💡 Ciekawostki")
-        st.markdown("""
-        * **CB Zera:** Polska pracuje w "zerach" (27.180), Europa w "piątkach" (27.185).
-        * **Doppler:** Satelita "piszczy" wyżej jak nadlatuje, niżej jak odlatuje (+/- 3kHz).
-        * **Samoloty w AM:** Aby kontroler słyszał gdy dwie osoby mówią naraz (słychać pisk). W FM słabszy sygnał zniknąłby całkowicie.
-        """)
-
-# 7. PRZEMIENNIKI
-with tabs[6]:
-    st.header("🗺️ Mapa Przemienników PL")
-    c1, c2 = st.columns([3,1])
-    dfr = pd.DataFrame(repeater_list)
-    with c1:
-        fig = go.Figure(go.Scattermapbox(lat=dfr['Lat'], lon=dfr['Lon'], mode='markers', marker=dict(size=12, color='orange'), text=dfr['Znak'], hoverinfo='text', hovertext=dfr['Znak']+" "+dfr['Freq']+" "+dfr['Loc']))
-        fig.update_layout(mapbox_style="open-street-map", mapbox=dict(center=dict(lat=52, lon=19), zoom=5), margin={"r":0,"t":0,"l":0,"b":0}, height=450)
-        st.plotly_chart(fig, use_container_width=True)
-    with c2: st.dataframe(dfr[["Znak", "Freq", "Loc"]], hide_index=True)
-
-# 8. KALKULATORY
-with tabs[7]:
-    st.header("🧮 Narzędzia")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.subheader("📡 Dipol")
-        f = st.number_input("Freq (MHz)", 145.5, format="%.3f")
-        st.success(f"Długość: {142.5/f:.2f}m")
-    with c2:
-        st.subheader("🌊 Fala")
-        st.metric("Długość fali", f"{300/f:.2f}m")
-    with c3:
-        st.subheader("📍 QTH")
-        la = st.number_input("Lat", 52.23); lo = st.number_input("Lon", 21.01)
-        st.info(f"Locator: {latlon_to_maidenhead(la, lo)}")
-
-# 9. WEBSDR
-with tabs[8]:
-    st.header("🌐 WebSDR")
-    st.dataframe(pd.DataFrame(websdr_list), column_config={"Link": st.column_config.LinkColumn("Link", display_text="Otwórz 🔗")}, use_container_width=True, hide_index=True)
-
-# 10. LOGBOOK (TRWAŁY)
-with tabs[9]:
-    st.header("📝 Dziennik Nasłuchów (Logbook)")
-    st.markdown("Dane zapisywane są w pliku `radio_logbook.csv` na serwerze.")
-    
-    if 'logbook_df' not in st.session_state:
-        st.session_state.logbook_df = load_logbook()
-
-    with st.form("log_form", clear_on_submit=True):
-        c1, c2, c3, c4, c5 = st.columns(5)
-        with c1: t_in = st.text_input("Godzina (UTC)", value=datetime.now(timezone.utc).strftime("%H:%M"))
-        with c2: f_in = st.text_input("Freq (MHz)")
-        with c3: s_in = st.text_input("Stacja / Znak")
-        with c4: m_in = st.selectbox("Modulacja", ["FM", "AM", "SSB", "CW", "DMR"])
-        with c5: r_in = st.text_input("Raport (RST)", "59")
-        
-        if st.form_submit_button("➕ Zapisz"):
-            if f_in and s_in:
-                new_entry = pd.DataFrame([{"Data": datetime.now().strftime("%Y-%m-%d"), "Godzina (UTC)": t_in, "Freq (MHz)": f_in, "Stacja": s_in, "Modulacja": m_in, "Raport": r_in}])
-                st.session_state.logbook_df = pd.concat([st.session_state.logbook_df, new_entry], ignore_index=True)
-                save_logbook(st.session_state.logbook_df)
-                st.success("Zapisano!")
-            else: st.error("Podaj częstotliwość i znak.")
-
-    st.subheader("Ostatnie wpisy")
-    st.dataframe(st.session_state.logbook_df, use_container_width=True)
-    st.download_button("📥 Pobierz Logbook (CSV)", st.session_state.logbook_df.to_csv(index=False).encode('utf-8'), "radio_logbook.csv", "text/csv")
-
-st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v13.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
+        for
