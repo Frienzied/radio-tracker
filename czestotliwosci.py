@@ -58,23 +58,16 @@ def latlon_to_maidenhead(lat, lon):
     A = ord('A')
     lon += 180
     lat += 90
-    
-    # Field
     f_lon = int(lon / 20)
     f_lat = int(lat / 10)
     lon -= f_lon * 20
     lat -= f_lat * 10
-    
-    # Square
     s_lon = int(lon / 2)
     s_lat = int(lat)
     lon -= s_lon * 2
     lat -= s_lat
-    
-    # Subsquare
     ss_lon = int(lon * 12)
     ss_lat = int(lat * 24)
-    
     return f"{chr(A+f_lon)}{chr(A+f_lat)}{s_lon}{s_lat}{chr(A+ss_lon)}{chr(A+ss_lat)}"
 
 # ===========================
@@ -252,7 +245,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📻 Stacje Globalne",
     "📚 Słownik & Ciekawostki",
     "🗺️ Przemienniki",
-    "🧮 Kalkulatory" # <--- NOWA ZAKŁADKA
+    "🧮 Kalkulatory"
 ])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
@@ -293,31 +286,58 @@ with tab2:
         st.image("https://www.hamqsl.com/solarmap.php", caption="Mapa Dzień/Noc (Greyline)", use_container_width=True)
     with col_info:
         st.success("### SFI (Solar Flux Index)")
-        st.markdown('* **> 100:** Dobre warunki DX.\n* **< 70:** Słabe warunki.')
+        st.markdown("""
+        "Paliwo" dla fal radiowych. Im wyższa liczba, tym lepsze odbicia od jonosfery.
+        * **< 70:** Słabe warunki (Drut kolczasty zamiast anteny).
+        * **70 - 100:** Średnie warunki.
+        * **> 100:** Dobre warunki (Europa/USA słyszalne głośno).
+        """)
         st.error("### K-Index (Burze Magnetyczne)")
-        st.markdown('* **0-2:** Czysty sygnał.\n* **> 4:** Burza geomagnetyczna (szumy).')
+        st.markdown("""
+        Poziom zakłóceń ziemskiego pola magnetycznego. Tu chcemy jak najmniej!
+        * **0 - 2:** Cisza, czysty odbiór (Super!).
+        * **3 - 4:** Lekkie zakłócenia.
+        * **> 5:** Burza geomagnetyczna. Szumy, zaniki sygnału.
+        """)
 
-# --- ZAKŁADKA 3: KRYZYSOWE ---
+# --- ZAKŁADKA 3: KRYZYSOWE (PEŁNE DANE PRZYWRÓCONE) ---
 with tab3:
     st.header("🆘 Procedury Awaryjne (Polska)")
+    
     c1, c2, c3 = st.columns(3)
+    
     with c1:
         st.error("### 1. Reguła 3-3-3")
         st.markdown("""
-        * **Kiedy?** Co 3 godziny (12:00, 15:00...)
-        * **Ile?** 3 minuty nasłuchu.
-        * **Gdzie?** PMR 3 / CB 3
+        System nasłuchu w sytuacji kryzysowej (brak GSM):
+        * **Kiedy?** Co 3 godziny (12:00, 15:00, 18:00...)
+        * **Ile?** 3 minuty nasłuchu, potem wywołanie.
+        * **Gdzie?** * **PMR:** Kanał 3 (446.03125 MHz)
+            * **CB:** Kanał 3 (26.980 MHz AM)
+        
+        *Włącz radio o pełnej godzinie. Najpierw słuchaj, potem nadawaj komunikat "Mayday" lub informacyjny.*
         """)
+
     with c2:
         st.warning("### 2. Sprzęt")
         st.markdown("""
-        * **Baofeng UV-5R:** PMR/Służby (brak AM).
-        * **Zasięg:** Miasto ~1km, Góry >100km.
-        * **Antena:** Dłuższa antena = lepszy odbiór.
+        * **Baofeng UV-5R:** Nie odbiera AM (Lotnictwo/CB). Dobre do PMR i Służb.
+        * **Zasięg (PMR):** * Miasto: 500m - 1km. 
+            * Otwarty teren: do 5km. 
+            * Góry/Kosmos: >100km.
+        * **Antena:** Fabryczna "gumowa" antena to najsłabsze ogniwo. Warto wymienić na dłuższą (np. Nagoya 771), co poprawia zasięg nawet o 50%.
         """)
+
     with c3:
-        st.info("### 3. Komunikacja")
-        st.markdown("**Raport SALT:** Size, Activity, Location, Time.")
+        st.info("### 3. Komunikacja (Raport SALT)")
+        st.markdown("""
+        W sytuacji kryzysowej meldunki muszą być krótkie i konkretne. Użyj formatu **S.A.L.T**:
+        
+        * **S (Size):** Wielkość zdarzenia / Liczba poszkodowanych.
+        * **A (Activity):** Co się dzieje? Czego potrzeba?
+        * **L (Location):** Gdzie jesteście? (Adres, charakterystyczny punkt).
+        * **T (Time):** Kiedy to się stało?
+        """)
 
 # --- ZAKŁADKA 4: STREFY CZASOWE ---
 with tab4:
@@ -333,12 +353,41 @@ with tab5:
     st.header("📻 Globalne Stacje Radiowe")
     st.dataframe(pd.DataFrame(global_stations), use_container_width=True, hide_index=True)
 
-# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI ---
+# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI (PEŁNE DANE PRZYWRÓCONE) ---
 with tab6:
     st.header("📚 Edukacja Radiowa")
-    c1, c2 = st.columns(2)
-    with c1: st.markdown("* **AM:** Lotnictwo/CB.\n* **FM:** Służby/PMR.\n* **Squelch:** Blokada szumów.\n* **QTH:** Lokalizacja.")
-    with c2: st.markdown("* **Dlaczego AM?** Bezpieczeństwo (brak nakładek).\n* **PMR:** Zasięg w mieście to często tylko 500m.")
+    
+    col_dict, col_facts = st.columns(2)
+    
+    with col_dict:
+        st.subheader("📖 Słownik Pojęć")
+        st.markdown("""
+        * **AM (Amplituda):** Modulacja używana w lotnictwie i na CB. Odporna na efekt "zjadania" słabszego sygnału.
+        * **FM / NFM (Częstotliwość):** Modulacja "czysta", ale działająca zero-jedynkowo (albo słyszysz, albo nie).
+        * **SSB (LSB/USB):** Modulacja jednowstęgowa. Pozwala na łączności międzykontynentalne na falach krótkich.
+        * **Squelch (SQ):** Bramka szumów. Wycisza radio, gdy sygnał jest zbyt słaby.
+        * **CTCSS / DCS:** Kody (tony) dodawane do głosu. Działają jak klucz do drzwi - otwierają przemiennik.
+        * **Shift (Offset):** Różnica między częstotliwością, na której słuchasz, a tą, na której nadajesz (niezbędne przy przemiennikach).
+        * **73:** Międzynarodowy kod oznaczający "Pozdrawiam".
+        * **QTH:** Kod oznaczający "Moja lokalizacja".
+        * **DX:** Łączność dalekiego zasięgu (poza granice kraju/kontynentu).
+        """)
+
+    with col_facts:
+        st.subheader("💡 Ciekawostki")
+        st.markdown("""
+        * **Dlaczego polskie CB to 'Zera'?**
+          Większość świata używa częstotliwości kończących się na 5 (np. 27.185 MHz). W Polsce historycznie przyjęto końcówki 0 (27.180 MHz). Aby rozmawiać z polskimi kierowcami, musisz mieć radio przestawione w standard "PL".
+        
+        * **PMR - Zasięg to mit?**
+          Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry na inną górę. W gęstej zabudowie miejskiej realny zasięg to często 300-500 metrów.
+        
+        * **Dlaczego samoloty używają AM?**
+          W modulacji FM, gdy dwie osoby nadają naraz, radio odtwarza tylko silniejszy sygnał (słabszy znika). W lotnictwie to niebezpieczne - kontroler musi wiedzieć, że ktoś próbuje się wciąć. W AM słychać obu naraz jako pisk/interferencję.
+          
+        * **Efekt Dopplera:**
+          Gdy ISS nadlatuje w Twoją stronę z prędkością 28 000 km/h, fale radiowe są "ściskane" i słyszysz je na wyższej częstotliwości (+3 kHz). Gdy odlatuje - na niższej.
+        """)
 
 # --- ZAKŁADKA 7: PRZEMIENNIKI ---
 with tab7:
@@ -401,4 +450,4 @@ with tab8:
         st.caption("Podawaj ten kod przy potwierdzaniu łączności.")
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v8.0 | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v8.1 FULL | Dane: CelesTrak, N0NBH | Czas: UTC")
