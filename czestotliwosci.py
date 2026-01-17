@@ -151,6 +151,13 @@ global_stations = [
     {"MHz": "5.450", "Pasmo": "SW", "Mod": "USB", "Kategoria": "Lotnictwo", "Nazwa": "RAF Volmet", "Opis": "Pogoda dla lotnictwa (Royal Air Force)."},
 ]
 
+websdr_list = [
+    {"Nazwa": "WebSDR Twente", "Kraj": "Holandia 🇳🇱", "Pasmo": "0 - 29 MHz (KF)", "Link": "http://websdr.ewi.utwente.nl:8901/", "Opis": "Absolutny nr 1 na świecie. Odbiera wszystko od stacji numerycznych po Radio China."},
+    {"Nazwa": "WebSDR Zielona Góra", "Kraj": "Polska 🇵🇱", "Pasmo": "VHF / UHF (2m/70cm)", "Link": "http://websdr.sp3pgx.uz.zgora.pl:8901/", "Opis": "Idealny do nasłuchu satelitów (ISS, NOAA) oraz lokalnych przemienników."},
+    {"Nazwa": "Klub SP2PMK", "Kraj": "Polska 🇵🇱", "Pasmo": "KF (80m/40m)", "Link": "http://sp2pmk.uni.torun.pl:8901/", "Opis": "Toruń. Świetny do słuchania polskich rozmów krótkofalarskich (wieczorami na 3.7 MHz)."},
+    {"Nazwa": "KiwiSDR Map", "Kraj": "Świat 🌍", "Pasmo": "Wszystkie", "Link": "http://rx.linkfanel.net/", "Opis": "Mapa tysięcy amatorskich odbiorników na całym świecie."},
+]
+
 # ===========================
 # 3. LOGIKA SATELITARNA
 # ===========================
@@ -236,8 +243,8 @@ with c_clock: st.markdown(f"<div style='text-align: right; font-family: monospac
 with c_visits: st.markdown(f"<div style='text-align: right; color: gray;'>Odwiedzin: <b>{visit_count}</b></div>", unsafe_allow_html=True)
 
 
-# --- ZAKŁADKI (8 ZAKŁADEK - DODANO NARZĘDZIA) ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+# --- ZAKŁADKI (9 ZAKŁADEK - DODANO WebSDR) ---
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📡 Tracker & Skaner", 
     "☀️ Pogoda Kosmiczna", 
     "🆘 Łączność Kryzysowa", 
@@ -245,7 +252,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📻 Stacje Globalne",
     "📚 Słownik & Ciekawostki",
     "🗺️ Przemienniki",
-    "🧮 Kalkulatory"
+    "🧮 Kalkulatory",
+    "🌐 WebSDR" # <--- NOWA ZAKŁADKA
 ])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
@@ -300,12 +308,10 @@ with tab2:
         * **> 5:** Burza geomagnetyczna. Szumy, zaniki sygnału.
         """)
 
-# --- ZAKŁADKA 3: KRYZYSOWE (PEŁNE DANE PRZYWRÓCONE) ---
+# --- ZAKŁADKA 3: KRYZYSOWE (FULL) ---
 with tab3:
     st.header("🆘 Procedury Awaryjne (Polska)")
-    
     c1, c2, c3 = st.columns(3)
-    
     with c1:
         st.error("### 1. Reguła 3-3-3")
         st.markdown("""
@@ -317,7 +323,6 @@ with tab3:
         
         *Włącz radio o pełnej godzinie. Najpierw słuchaj, potem nadawaj komunikat "Mayday" lub informacyjny.*
         """)
-
     with c2:
         st.warning("### 2. Sprzęt")
         st.markdown("""
@@ -327,7 +332,6 @@ with tab3:
             * Góry/Kosmos: >100km.
         * **Antena:** Fabryczna "gumowa" antena to najsłabsze ogniwo. Warto wymienić na dłuższą (np. Nagoya 771), co poprawia zasięg nawet o 50%.
         """)
-
     with c3:
         st.info("### 3. Komunikacja (Raport SALT)")
         st.markdown("""
@@ -353,12 +357,10 @@ with tab5:
     st.header("📻 Globalne Stacje Radiowe")
     st.dataframe(pd.DataFrame(global_stations), use_container_width=True, hide_index=True)
 
-# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI (PEŁNE DANE PRZYWRÓCONE) ---
+# --- ZAKŁADKA 6: SŁOWNIK I CIEKAWOSTKI (FULL) ---
 with tab6:
     st.header("📚 Edukacja Radiowa")
-    
     col_dict, col_facts = st.columns(2)
-    
     with col_dict:
         st.subheader("📖 Słownik Pojęć")
         st.markdown("""
@@ -372,19 +374,15 @@ with tab6:
         * **QTH:** Kod oznaczający "Moja lokalizacja".
         * **DX:** Łączność dalekiego zasięgu (poza granice kraju/kontynentu).
         """)
-
     with col_facts:
         st.subheader("💡 Ciekawostki")
         st.markdown("""
         * **Dlaczego polskie CB to 'Zera'?**
           Większość świata używa częstotliwości kończących się na 5 (np. 27.185 MHz). W Polsce historycznie przyjęto końcówki 0 (27.180 MHz). Aby rozmawiać z polskimi kierowcami, musisz mieć radio przestawione w standard "PL".
-        
         * **PMR - Zasięg to mit?**
           Producenci piszą "zasięg do 10 km". To prawda, ale tylko ze szczytu góry na inną górę. W gęstej zabudowie miejskiej realny zasięg to często 300-500 metrów.
-        
         * **Dlaczego samoloty używają AM?**
           W modulacji FM, gdy dwie osoby nadają naraz, radio odtwarza tylko silniejszy sygnał (słabszy znika). W lotnictwie to niebezpieczne - kontroler musi wiedzieć, że ktoś próbuje się wciąć. W AM słychać obu naraz jako pisk/interferencję.
-          
         * **Efekt Dopplera:**
           Gdy ISS nadlatuje w Twoją stronę z prędkością 28 000 km/h, fale radiowe są "ściskane" i słyszysz je na wyższej częstotliwości (+3 kHz). Gdy odlatuje - na niższej.
         """)
@@ -401,53 +399,55 @@ with tab7:
     with col_info_rep:
         st.dataframe(df_rep[["Znak", "Freq", "Loc"]], hide_index=True, use_container_width=True)
 
-# --- ZAKŁADKA 8: KALKULATORY (NOWA!) ---
+# --- ZAKŁADKA 8: KALKULATORY ---
 with tab8:
-    st.header("🧮 Narzędzia Radiowe (Toolbox)")
-    
+    st.header("🧮 Narzędzia Radiowe")
     col_ant, col_wave, col_qth = st.columns(3)
     
-    # 1. Kalkulator Anteny (Dipol)
     with col_ant:
         st.subheader("📡 Kalkulator Dipola")
-        st.markdown("Oblicz długość anteny (dipol półfalowy) dla danej częstotliwości.")
+        st.markdown("Oblicz długość anteny (dipol półfalowy).")
         freq_input = st.number_input("Częstotliwość (MHz):", value=145.500, step=0.001, format="%.3f")
-        
         if freq_input > 0:
-            # Wzór: 142.5 / f (dla dipola półfalowego ze współczynnikiem 0.95)
             total_len = 142.5 / freq_input
             arm_len = total_len / 2
             st.success(f"**Cała antena:** {total_len*100:.1f} cm")
             st.info(f"**Jedno ramię:** {arm_len*100:.1f} cm")
-        else:
-            st.error("Wpisz poprawną częstotliwość.")
 
-    # 2. Kalkulator Długości Fali
     with col_wave:
         st.subheader("🌊 Długość Fali")
-        st.markdown("Przelicz częstotliwość na długość fali (pasmo).")
+        st.markdown("Przelicz częstotliwość na długość fali.")
         freq_wave = st.number_input("Częstotliwość (MHz)", value=27.180, step=0.001, format="%.3f")
-        
         if freq_wave > 0:
             wavelength = 300 / freq_wave
-            band_name = ""
-            if 26 <= freq_wave <= 28: band_name = "(Pasmo CB / 11m)"
-            elif 144 <= freq_wave <= 146: band_name = "(Pasmo 2m)"
-            elif 430 <= freq_wave <= 446: band_name = "(Pasmo 70cm)"
-            
             st.metric("Długość fali", f"{wavelength:.2f} m")
-            if band_name: st.caption(band_name)
 
-    # 3. Lokalizator QTH
     with col_qth:
         st.subheader("📍 Lokalizator QTH")
-        st.markdown("Zamień współrzędne GPS na kod Maidenhead.")
-        qth_lat = st.number_input("Szerokość (Lat):", value=52.23, step=0.01)
-        qth_lon = st.number_input("Długość (Lon):", value=21.01, step=0.01)
-        
-        locator = latlon_to_maidenhead(qth_lat, qth_lon)
-        st.success(f"Twój Locator: **{locator}**")
-        st.caption("Podawaj ten kod przy potwierdzaniu łączności.")
+        st.markdown("Współrzędne GPS -> Maidenhead.")
+        qth_lat = st.number_input("Lat:", value=52.23, step=0.01)
+        qth_lon = st.number_input("Lon:", value=21.01, step=0.01)
+        st.success(f"Locator: **{latlon_to_maidenhead(qth_lat, qth_lon)}**")
+
+# --- ZAKŁADKA 9: WebSDR (NOWA!) ---
+with tab9:
+    st.header("🌐 Katalog WebSDR")
+    st.markdown("Odbiorniki radiowe dostępne online. Kliknij link, aby słuchać na żywo.")
+    
+    df_websdr = pd.DataFrame(websdr_list)
+    
+    st.dataframe(
+        df_websdr,
+        column_config={
+            "Nazwa": st.column_config.TextColumn("Odbiornik", width="medium"),
+            "Kraj": st.column_config.TextColumn("Lokalizacja", width="small"),
+            "Pasmo": st.column_config.TextColumn("Zakres", width="medium"),
+            "Link": st.column_config.LinkColumn("Link do odsłuchu", display_text="Otwórz 🔗"),
+            "Opis": st.column_config.TextColumn("Opis", width="large"),
+        },
+        use_container_width=True,
+        hide_index=True
+    )
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v8.1 FULL | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v9.0 FULL | Dane: CelesTrak, N0NBH | Czas: UTC")
