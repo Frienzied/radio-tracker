@@ -15,7 +15,7 @@ import astropy.units as u
 # Konfiguracja Strony
 # ===========================
 st.set_page_config(
-    page_title="Radio & Crisis Center",
+    page_title="Centrum Dowodzenia Radiowego",
     page_icon="📡",
     layout="wide"
 )
@@ -96,7 +96,7 @@ def get_satellite_position(line1, line2):
         return None, None, [], []
 
 # ===========================
-# 2. BAZA DANYCH (WERSJA ROZSZERZONA PL)
+# 2. BAZA DANYCH (MERYTORYCZNA)
 # ===========================
 
 data_freq = [
@@ -136,25 +136,42 @@ data_freq = [
 
 with st.sidebar:
     st.header("🎛️ Panel Kontrolny")
+    
+    # Zegar UTC
     st.markdown(f"""
     <div style="background-color: #0e1117; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #333;">
         <div style="font-size: 0.9em; color: #888;">CZAS UTC (ZULU)</div>
         <div style="font-size: 1.8em; font-weight: bold; color: #00ff41; font-family: monospace;">{get_utc_time()}</div>
     </div>
     """, unsafe_allow_html=True)
+    
     st.write("---")
     st.write(f"👁️ Odwiedzin: **{visit_count}**")
-    st.info("""
-    **Słowniczek:**
-    * **AM:** Modulacja amplitudy (Lotnictwo, CB).
-    * **NFM:** Wąski FM (Służby, PMR).
-    * **WFM:** Szeroki FM (Satelity NOAA).
-    * **Uplink/Downlink:** Nadawanie/Odbiór.
-    """)
+    
+    # ROZBUDOWANY SŁOWNICZEK
+    with st.expander("📚 Słowniczek Radiowy", expanded=True):
+        st.markdown("""
+        * **Squelch (SQ):** Blokada szumów. Ustawiasz tak, aby radio milczało, gdy nikt nie nadaje, a "otwierało się" na rozmowę.
+        * **AM:** Modulacja amplitudy. Używana w **Lotnictwie** i na **CB Radio**. Zapewnia brak efektu "wypierania" (słychać dwóch rozmówców naraz).
+        * **NFM / WFM:** Wąski (Służby/PMR) i Szeroki (Radio FM/NOAA) FM. Źle dobrany FM powoduje cichy lub charczący dźwięk.
+        * **CTCSS / DCS:** "Podtony". Niesłyszalne dla ucha kody, które otwierają przemiennik. Bez nich przemiennik Cię nie usłyszy.
+        * **Shift (Offset):** Różnica częstotliwości nadawania i odbioru. Niezbędne do pracy przez przemienniki (np. ISS Repeater).
+        * **VFO:** Tryb, gdzie ręcznie wpisujesz częstotliwość z klawiatury.
+        * **73:** Krótkofalarskie "Pozdrawiam".
+        * **DX:** Łączność na bardzo dużą odległość.
+        """)
 
-st.title("📡 Radio Command Center")
+    # CIEKAWOSTKI
+    with st.expander("💡 Czy wiesz że?", expanded=False):
+        st.markdown("""
+        * **Dlaczego samoloty używają AM?** W modulacji FM silniejszy sygnał całkowicie wycina słabszy (Capture Effect). W lotnictwie to niebezpieczne – w AM kontroler słyszy (jako pisk/zakłócenie), że dwie osoby nadają jednocześnie.
+        * **Efekt Dopplera:** Gdy ISS nadlatuje, słyszysz go ok. 3 kHz **wyżej** (np. 145.803), a gdy odlatuje – **niżej** (145.797). Musisz kręcić gałką strojenia!
+        * **Zasięg radia ręcznego:** Zależy od horyzontu. Stojąc na ziemi masz zasięg ~5km. Ale z ISS (400 km w górę) usłyszysz sygnał na ponad 2000 km!
+        """)
 
-# Tylko dwie zakładki - usuwamy problematyczne audio
+st.title("📡 Centrum Dowodzenia Radiowego")
+
+# Zakładki
 tab1, tab2 = st.tabs(["📡 Tracker & Skaner", "🆘 Łączność Kryzysowa"])
 
 # --- ZAKŁADKA 1: MAPA I LISTA ---
@@ -209,8 +226,12 @@ with tab1:
         st.subheader("Baza Częstotliwości (PL)")
         df = pd.DataFrame(data_freq)
         c_search, c_filter = st.columns([2,1])
-        with c_search: search = st.text_input("🔍 Szukaj...", "")
-        with c_filter: cat_filter = st.multiselect("Kategoria", df["Kategoria"].unique())
+        
+        # POPRAWIONE: Polski placeholder zamiast "Choose options"
+        with c_search: 
+            search = st.text_input("🔍 Szukaj...", placeholder="Np. PMR, ISS")
+        with c_filter: 
+            cat_filter = st.multiselect("Kategorie", df["Kategoria"].unique(), placeholder="Wybierz...")
 
         if search: df = df[df.apply(lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1)]
         if cat_filter: df = df[df["Kategoria"].isin(cat_filter)]
@@ -258,4 +279,4 @@ with tab2:
         """)
 
 st.markdown("---")
-st.caption("Radio Command Center v3.1 | Dane satelitarne: CelesTrak | Czas: UTC")
+st.caption("Radio Command Center v3.2 | Dane satelitarne: CelesTrak | Czas: UTC")
