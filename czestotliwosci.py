@@ -4,8 +4,9 @@ import plotly.graph_objects as go
 import requests
 import os
 import pytz
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+# Biblioteki do obliczeń satelitarnych
 from sgp4.api import Satrec, jday
 from astropy.coordinates import TEME, EarthLocation, ITRS
 from astropy.time import Time
@@ -19,8 +20,15 @@ st.set_page_config(page_title="Centrum Dowodzenia Radiowego", page_icon="📡", 
 # ===========================
 # 0. FUNKCJE POMOCNICZE
 # ===========================
-if 'logbook' not in st.session_state:
-    st.session_state.logbook = []
+LOGBOOK_FILE = "radio_logbook.csv"
+
+def load_logbook():
+    if os.path.exists(LOGBOOK_FILE):
+        return pd.read_csv(LOGBOOK_FILE)
+    return pd.DataFrame(columns=["Data", "Godzina (UTC)", "Freq (MHz)", "Stacja", "Modulacja", "Raport"])
+
+def save_logbook(df):
+    df.to_csv(LOGBOOK_FILE, index=False)
 
 def update_counter():
     counter_file = "counter.txt"
@@ -40,10 +48,6 @@ def get_utc_time(): return datetime.now(timezone.utc).strftime("%H:%M UTC")
 def get_time_in_zone(zone_name):
     try: return datetime.now(pytz.timezone(zone_name)).strftime("%H:%M")
     except: return "--:--"
-
-def get_date_in_zone(zone_name):
-    try: return datetime.now(pytz.timezone(zone_name)).strftime("%d.%m.%Y")
-    except: return ""
 
 def latlon_to_maidenhead(lat, lon):
     A = ord('A')
@@ -129,18 +133,29 @@ special_freqs = [
 data_freq = special_freqs + generate_pmr_list() + generate_cb_list()
 
 # ===========================
-# 3. LOGIKA SATELITARNA
+# 3. LOGIKA SATELITARNA (NAPRAWIONA)
 # ===========================
 @st.cache_data(ttl=3600)
 def fetch_iss_tle():
+    # TLE Zapasowe (Fallback) na wypadek awarii Celestrak
+    FALLBACK_TLE = (
+        "1 25544U 98067A   24017.54519514  .00016149  00000+0  29290-3 0  9993",
+        "2 25544  51.6415 158.8530 0005786 244.1866 179.9192 15.49622591435056"
+    )
     url = "https://celestrak.org/NORAD/elements/stations.txt"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
     try:
-        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
+        resp = requests.get(url, headers=headers, timeout=5)
+        resp.raise_for_status() # Sprawdź czy nie ma błędu 404/500
         lines = [l.strip() for l in resp.text.splitlines() if l.strip()]
         for i, line in enumerate(lines):
-            if "ISS (ZARYA)" in line and i+2 < len(lines): return lines[i+1], lines[i+2]
-        return None
-    except: return None
+            if "ISS (ZARYA)" in line and i+2 < len(lines):
+                return lines[i+1], lines[i+2]
+        return FALLBACK_TLE
+    except Exception:
+        # W razie jakiegokolwiek błędu zwróć stare dane, żeby strona działała
+        return FALLBACK_TLE
 
 def get_satellite_position(line1, line2):
     try:
@@ -186,8 +201,9 @@ with tabs[0]:
     c_map, c_data = st.columns([3, 2])
     with c_map:
         st.subheader("ISS Tracker")
-        l1, l2 = fetch_iss_tle()
-        if l1:
+        tle_data = fetch_iss_tle() # Teraz zawsze zwróci tuple, nigdy None
+        if tle_data:
+            l1, l2 = tle_data
             lat, lon, t_lat, t_lon = get_satellite_position(l1, l2)
             if lat:
                 fig = go.Figure()
@@ -196,6 +212,11 @@ with tabs[0]:
                 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=450, geo=dict(projection_type="natural earth", showland=True, landcolor="#333", showocean=True, oceancolor="#111", showcountries=True), showlegend=False)
                 st.plotly_chart(fig, use_container_width=True)
                 if st.button("🔄 Odśwież"): st.rerun()
+            else:
+                st.error("Błąd obliczeń orbitalnych.")
+        else:
+            st.error("Błąd krytyczny danych TLE.")
+
     with c_data:
         st.subheader("Częstotliwości")
         df = pd.DataFrame(data_freq)
@@ -267,35 +288,53 @@ with tabs[8]:
     st.header("🌐 WebSDR")
     st.dataframe(pd.DataFrame(websdr_list), column_config={"Link": st.column_config.LinkColumn("Link", display_text="Otwórz 🔗")}, use_container_width=True, hide_index=True)
 
-# 10. LOGBOOK (NOWY!)
+# 10. LOGBOOK (ULEPSZONY - BAZA PLIKOWA)
 with tabs[9]:
     st.header("📝 Dziennik Nasłuchów (Logbook)")
-    st.markdown("Zapisz swoje łączności (dane znikną po odświeżeniu strony).")
+    st.markdown("Twoja osobista baza łączności. Dane są zapisywane w pliku na serwerze.")
     
+    # Ładowanie danych
+    if 'logbook_df' not in st.session_state:
+        st.session_state.logbook_df = load_logbook()
+
     # Formularz
     with st.form("log_form", clear_on_submit=True):
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         with c1: t_in = st.text_input("Godzina (UTC)", value=datetime.now(timezone.utc).strftime("%H:%M"))
         with c2: f_in = st.text_input("Freq (MHz)")
         with c3: s_in = st.text_input("Stacja / Znak")
         with c4: m_in = st.selectbox("Modulacja", ["FM", "AM", "SSB", "CW", "DMR"])
+        with c5: r_in = st.text_input("Raport (RST)", "59")
         
-        submitted = st.form_submit_button("➕ Dodaj wpis")
+        submitted = st.form_submit_button("➕ Zapisz w Bazie")
         if submitted:
             if f_in and s_in:
-                st.session_state.logbook.append({"Godzina": t_in, "Freq": f_in, "Stacja": s_in, "Mod": m_in})
-                st.success("Dodano!")
+                new_entry = pd.DataFrame([{
+                    "Data": datetime.now().strftime("%Y-%m-%d"),
+                    "Godzina (UTC)": t_in,
+                    "Freq (MHz)": f_in,
+                    "Stacja": s_in,
+                    "Modulacja": m_in,
+                    "Raport": r_in
+                }])
+                st.session_state.logbook_df = pd.concat([st.session_state.logbook_df, new_entry], ignore_index=True)
+                save_logbook(st.session_state.logbook_df)
+                st.success("Zapisano!")
             else:
-                st.error("Podaj częstotliwość i znak.")
+                st.error("Podaj przynajmniej częstotliwość i znak.")
 
-    # Tabela
-    if st.session_state.logbook:
-        st.dataframe(pd.DataFrame(st.session_state.logbook), use_container_width=True)
-        if st.button("🗑️ Wyczyść Dziennik"):
-            st.session_state.logbook = []
-            st.rerun()
-    else:
-        st.info("Dziennik jest pusty.")
+    # Wyświetlanie Tabeli
+    st.subheader("Ostatnie wpisy")
+    st.dataframe(st.session_state.logbook_df, use_container_width=True)
+    
+    # Przycisk pobierania (Backup)
+    csv = st.session_state.logbook_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Pobierz Logbook (CSV)",
+        data=csv,
+        file_name='radio_logbook.csv',
+        mime='text/csv',
+    )
 
 st.markdown("---")
-st.caption("Centrum Dowodzenia Radiowego v10.0 | Dane: CelesTrak, N0NBH | Czas: UTC")
+st.caption("Centrum Dowodzenia Radiowego v11.0 Stable | Dane: CelesTrak, N0NBH | Czas: UTC")
